@@ -1,0 +1,77 @@
+{
+  "name": "callsteer-widget",
+  "version": "1.0.0",
+  "description": "CallSteer AI Sales Coaching Widget - Real-time sales coaching nudges",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir",
+    "generate-icons": "node build/generate-icons.js"
+  },
+  "keywords": [
+    "electron",
+    "sales",
+    "coaching",
+    "ai",
+    "callsteer"
+  ],
+  "author": {
+    "name": "CallSteer",
+    "email": "support@callsteer.ai"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "electron-audio-loopback": "^1.0.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.1",
+    "electron-builder": "^24.9.1",
+    "png-to-ico": "^3.0.1"
+  },
+  "build": {
+    "appId": "com.callsteer.widget",
+    "productName": "CallSteer",
+    "copyright": "Copyright © 2024 CallSteer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "CallSteer"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CallSteer",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "include": "build/installer.nsh"
+    },
+    "files": [
+      "**/*",
+      "!build/**/*",
+      "!dist/**/*",
+      "!*.md"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ]
+  }
+}

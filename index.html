@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CallSteer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="widget" id="login-screen">
+    <!-- Header -->
+    <div class="header" id="login-drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="login-close-btn"></button>
+        <button class="control-btn minimize" id="login-minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="header-title">CallSteer</span>
+      </div>
+    </div>
+
+    <!-- Login Content -->
+    <div class="login-content">
+      <div class="logo-container">
+        <svg class="logo-svg" viewBox="0 0 48 48" width="72" height="72">
+          <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#00d4aa"/>
+              <stop offset="100%" style="stop-color:#00a8ff"/>
+            </linearGradient>
+          </defs>
+          <circle cx="24" cy="24" r="16" fill="none" stroke="url(#logoGradient)" stroke-width="2"/>
+          <circle cx="24" cy="24" r="5" fill="none" stroke="url(#logoGradient)" stroke-width="1.5"/>
+          <g stroke="url(#logoGradient)" stroke-width="1.5" stroke-linecap="round">
+            <line x1="24" y1="8" x2="24" y2="19"/>
+            <line x1="24" y1="29" x2="24" y2="40"/>
+            <line x1="8" y1="24" x2="19" y2="24"/>
+            <line x1="29" y1="24" x2="40" y2="24"/>
+          </g>
+        </svg>
+      </div>
+
+      <h1 class="brand-title">CallSteer</h1>
+      <p class="brand-subtitle">AI Sales Coach</p>
+
+      <div class="login-form">
+        <input
+          type="text"
+          id="client-code-input"
+          class="input-field"
+          placeholder="Enter code"
+          maxlength="6"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="login-error" id="login-error"></div>
+        <button class="btn btn-primary" id="connect-btn">
+          <span class="btn-text">Connect</span>
+          <div class="btn-loader" id="login-spinner"></div>
+        </button>
+      </div>
+
+      <a href="#" class="signup-link" id="signup-link">Get a code at callsteer.com</a>
+    </div>
+  </div>
+
+  <!-- Main Widget -->
+  <div class="widget" id="main-widget" style="display: none;">
+    <!-- Header -->
+    <div class="header" id="drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="close-btn"></button>
+        <button class="control-btn minimize" id="minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="status-indicator" id="header-status"></span>
+        <span class="header-title">CallSteer</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Device Settings -->
+      <div class="section device-section">
+        <div class="device-row">
+          <label class="device-label">🎤 Microphone (Your Voice)</label>
+          <select id="mic-select" class="device-select">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+        <div class="device-row">
+          <label class="device-label">🔊 Speaker Output (Customer Voice)</label>
+          <select id="speaker-select" class="device-select">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Power Toggle -->
+      <div class="section toggle-section">
+        <div class="toggle-info">
+          <span class="toggle-status" id="toggle-status">OFF</span>
+          <span class="toggle-hint" id="toggle-hint">Tap to start listening</span>
+        </div>
+        <button class="power-btn" id="power-toggle">
+          <svg class="power-icon" viewBox="0 0 24 24" width="28" height="28">
+            <path d="M12 3v9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Listening Indicator -->
+      <div class="listening-indicator" id="listening-animation" style="display: none;">
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <span class="listening-text">Listening...</span>
+      </div>
+
+      <!-- Nudge Section -->
+      <div class="section nudge-section" id="nudge-section">
+        <!-- Empty State -->
+        <div class="nudge-empty" id="nudge-empty">
+          <p class="empty-text">No nudges yet</p>
+          <p class="empty-hint">Turn on listening to get AI coaching</p>
+        </div>
+
+        <!-- Nudge Card (hidden by default) -->
+        <div class="nudge-card" id="nudge-card" style="display: none;">
+          <div class="nudge-header">
+            <span class="nudge-type" id="nudge-type">TIP</span>
+            <span class="nudge-time" id="nudge-time">Just now</span>
+          </div>
+          <p class="nudge-text" id="nudge-text"></p>
+          <div class="nudge-actions">
+            <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+            <button class="nudge-btn" id="dismiss-nudge-btn" title="Dismiss">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="section stats-section">
+        <div class="stat">
+          <span class="stat-value" id="stat-streak">0</span>
+          <span class="stat-label">Streak</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value" id="stat-adoption">0%</span>
+          <span class="stat-label">Adoption</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value" id="stat-nudges">0</span>
+          <span class="stat-label">Today</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer" id="connection-status">
+      <span class="footer-dot"></span>
+      <span class="footer-text" id="status-text">Connecting...</span>
+    </div>
+  </div>
+
+  <script src="audio-service.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

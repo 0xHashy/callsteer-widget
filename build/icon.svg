@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#252540"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ff88"/>
+      <stop offset="100%" style="stop-color:#00cc6a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="url(#bgGrad)" stroke="#00ff88" stroke-width="4"/>
+
+  <!-- Ship's wheel outer ring -->
+  <circle cx="128" cy="128" r="70" fill="none" stroke="url(#greenGrad)" stroke-width="12"/>
+
+  <!-- Ship's wheel inner ring -->
+  <circle cx="128" cy="128" r="25" fill="none" stroke="url(#greenGrad)" stroke-width="8"/>
+
+  <!-- Ship's wheel spokes (8 spokes) -->
+  <g stroke="url(#greenGrad)" stroke-width="8" stroke-linecap="round">
+    <!-- Top -->
+    <line x1="128" y1="58" x2="128" y2="103"/>
+    <!-- Top-right -->
+    <line x1="177" y1="79" x2="145" y2="110"/>
+    <!-- Right -->
+    <line x1="198" y1="128" x2="153" y2="128"/>
+    <!-- Bottom-right -->
+    <line x1="177" y1="177" x2="145" y2="146"/>
+    <!-- Bottom -->
+    <line x1="128" y1="198" x2="128" y2="153"/>
+    <!-- Bottom-left -->
+    <line x1="79" y1="177" x2="111" y2="146"/>
+    <!-- Left -->
+    <line x1="58" y1="128" x2="103" y2="128"/>
+    <!-- Top-left -->
+    <line x1="79" y1="79" x2="111" y2="110"/>
+  </g>
+
+  <!-- Wheel handles (pegs at end of spokes) -->
+  <g fill="url(#greenGrad)">
+    <circle cx="128" cy="48" r="10"/>
+    <circle cx="185" cy="71" r="10"/>
+    <circle cx="208" cy="128" r="10"/>
+    <circle cx="185" cy="185" r="10"/>
+    <circle cx="128" cy="208" r="10"/>
+    <circle cx="71" cy="185" r="10"/>
+    <circle cx="48" cy="128" r="10"/>
+    <circle cx="71" cy="71" r="10"/>
+  </g>
+
+  <!-- Headset earpiece (left) -->
+  <ellipse cx="55" cy="95" rx="18" ry="25" fill="url(#greenGrad)" opacity="0.9"/>
+  <rect x="45" y="85" width="20" height="20" rx="4" fill="#1a1a2e"/>
+
+  <!-- Headset band (top arc) -->
+  <path d="M 55 80 Q 55 35 128 35 Q 201 35 201 80"
+        fill="none" stroke="url(#greenGrad)" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Headset earpiece (right) -->
+  <ellipse cx="201" cy="95" rx="18" ry="25" fill="url(#greenGrad)" opacity="0.9"/>
+  <rect x="191" y="85" width="20" height="20" rx="4" fill="#1a1a2e"/>
+
+  <!-- Microphone boom -->
+  <path d="M 55 110 Q 60 140 85 155"
+        fill="none" stroke="url(#greenGrad)" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="90" cy="160" r="12" fill="url(#greenGrad)" opacity="0.9"/>
+  <circle cx="90" cy="160" r="6" fill="#1a1a2e"/>
+</svg>
