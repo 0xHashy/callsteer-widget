@@ -1,21 +1,42 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, clipboard, shell, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, clipboard, shell, desktopCapturer, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Initialize electron-audio-loopback for system audio capture (MUST be before app.ready)
-let audioLoopback = null;
-try {
-  const { initMain } = require('electron-audio-loopback');
-  initMain();
-  audioLoopback = require('electron-audio-loopback');
-  console.log('[Main] electron-audio-loopback initialized');
-} catch (e) {
-  console.warn('[Main] electron-audio-loopback not available:', e.message);
-}
-
-// Enable audio capture features for Windows WASAPI
+// Enable audio capture features for Windows WASAPI - MUST be before app.ready
 app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
+
+// Set up the display media request handler on the default session
+// This MUST be done in the 'ready' event, before creating windows
+app.on('ready', () => {
+  console.log('[Main] Setting up display media request handler for loopback audio...');
+
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    console.log('[Main] Display media requested - providing loopback audio');
+
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      console.log('[Main] Got', sources.length, 'screen source(s)');
+
+      if (sources.length > 0) {
+        // Grant access to first screen with loopback audio
+        // 'loopback' is the official Electron way to capture system audio on Windows
+        callback({
+          video: sources[0],
+          audio: 'loopback'
+        });
+        console.log('[Main] ✅ Granted loopback audio access for source:', sources[0].name);
+      } else {
+        console.error('[Main] ❌ No screen sources found');
+        callback({});
+      }
+    }).catch(err => {
+      console.error('[Main] ❌ Error getting sources:', err);
+      callback({});
+    });
+  });
+
+  console.log('[Main] ✅ Display media request handler configured');
+});
 
 let mainWindow;
 let tray;
@@ -119,30 +140,8 @@ function createWindow() {
     return allowedPermissions.includes(permission);
   });
 
-  // IMPORTANT: Set up display media request handler for system audio loopback
-  // This allows getDisplayMedia to capture system audio without showing a picker
-  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
-    console.log('[Main] Display media requested');
-
-    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-      console.log('[Main] Got', sources.length, 'screen sources');
-
-      if (sources.length > 0) {
-        // Grant access to first screen with loopback audio
-        callback({
-          video: sources[0],
-          audio: 'loopback'  // This is the key - enables system audio loopback on Windows
-        });
-        console.log('[Main] Granted loopback audio access');
-      } else {
-        console.error('[Main] No screen sources found');
-        callback({});
-      }
-    }).catch(err => {
-      console.error('[Main] Error getting sources:', err);
-      callback({});
-    });
-  });
+  // NOTE: setDisplayMediaRequestHandler is set up on session.defaultSession in app.on('ready')
+  // This provides loopback audio for system audio capture via getDisplayMedia
 
   // Set always on top with highest level to stay above all windows
   mainWindow.setAlwaysOnTop(true, 'screen-saver');

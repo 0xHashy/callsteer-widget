@@ -1,5 +1,19 @@
 // CallSteer Widget - WebSocket-based Renderer
 // Receives real-time nudges from backend via WebSocket (Dialpad integration)
+// Also captures mic (rep) and system audio (customer) for Deepgram transcription
+
+// ==================== DEEPGRAM CONFIGURATION ====================
+const DEEPGRAM_API_KEY = '846b9dfcbcd1dc4fbdb03ac2e09fee2fbe3e9fab'; // TODO: Set your Deepgram API key or fetch from backend
+const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
+
+// ==================== AUDIO CAPTURE STATE ====================
+let micStream = null;           // Rep voice (microphone)
+let systemAudioStream = null;   // Customer voice (system audio loopback)
+let micMediaRecorder = null;
+let systemMediaRecorder = null;
+let deepgramMicSocket = null;   // Deepgram WebSocket for mic
+let deepgramSystemSocket = null; // Deepgram WebSocket for system audio
+let isCapturingAudio = false;
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -221,6 +235,7 @@ async function toggleListening() {
     // TURN OFF
     console.log('[Toggle] Turning OFF...');
     disconnectNudgeWebSocket();
+    stopAudioCapture(); // Stop mic and system audio capture
     isListening = false;
 
     // Update UI to OFF state
@@ -244,13 +259,22 @@ async function toggleListening() {
       toggleStatus.classList.add('active');
       toggleStatus.textContent = 'ON';
     }
-    if (toggleHint) toggleHint.textContent = 'Waiting for calls...';
+    if (toggleHint) toggleHint.textContent = 'Starting audio capture...';
     if (listeningAnimation) listeningAnimation.style.display = 'flex';
 
-    // Connect to WebSocket for real-time nudges
+    // Connect to WebSocket for real-time nudges (from Dialpad)
     connectToNudgeWebSocket(clientCode);
-    isListening = true;
 
+    // Start audio capture (mic = rep, system = customer)
+    try {
+      await startAudioCapture();
+      if (toggleHint) toggleHint.textContent = 'Listening to mic & speaker';
+    } catch (error) {
+      console.error('[Toggle] Audio capture failed:', error);
+      if (toggleHint) toggleHint.textContent = 'WebSocket only (audio failed)';
+    }
+
+    isListening = true;
     console.log('[Toggle] Now ON');
   }
 }
@@ -306,14 +330,13 @@ function connectToNudgeWebSocket(code) {
     nudgeSocket.onmessage = (event) => {
       console.log('[WebSocket] Received message:', event.data);
 
+      // Ignore heartbeat messages
+      if (event.data === 'pong' || event.data === 'ping') {
+        return;
+      }
+
       try {
         const nudge = JSON.parse(event.data);
-
-        // Handle pong response
-        if (nudge === 'pong' || event.data === 'pong') {
-          console.log('[WebSocket] Pong received');
-          return;
-        }
 
         // Process the nudge
         if (nudge && nudge.nudge_id) {
@@ -321,7 +344,7 @@ function connectToNudgeWebSocket(code) {
           processNudges([nudge]);
         }
       } catch (e) {
-        console.error('[WebSocket] Failed to parse message:', e);
+        console.log('[WebSocket] Non-JSON message, ignoring:', event.data);
       }
     };
 
@@ -595,4 +618,585 @@ function showToast(message, type = 'success') {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, 2000);
+}
+
+// ==================== AUDIO CAPTURE (MIC + SYSTEM) ====================
+
+/**
+ * Start capturing both mic (rep) and system audio (customer)
+ * Streams both to Deepgram for real-time transcription
+ */
+async function startAudioCapture() {
+  if (isCapturingAudio) {
+    console.log('[Audio] Already capturing');
+    return;
+  }
+
+  console.log('[Audio] Starting dual audio capture...');
+
+  try {
+    // 1. Capture microphone (rep voice)
+    await startMicCapture();
+
+    // 2. Capture system audio (customer voice via loopback)
+    await startSystemAudioCapture();
+
+    isCapturingAudio = true;
+    console.log('[Audio] Dual audio capture started');
+    updateConnectionStatus('connected', 'Listening (mic + speaker)');
+
+  } catch (error) {
+    console.error('[Audio] Failed to start capture:', error);
+    stopAudioCapture();
+    throw error;
+  }
+}
+
+/**
+ * Stop all audio capture
+ */
+function stopAudioCapture() {
+  console.log('[Audio] Stopping audio capture...');
+
+  // Reset call ID for next session (affects debouncing)
+  if (typeof resetCallId === 'function') {
+    resetCallId();
+  }
+
+  // Stop mic
+  if (micMediaRecorder && micMediaRecorder.state !== 'inactive') {
+    micMediaRecorder.stop();
+  }
+  if (micStream) {
+    micStream.getTracks().forEach(track => track.stop());
+    micStream = null;
+  }
+  if (deepgramMicSocket) {
+    deepgramMicSocket.close();
+    deepgramMicSocket = null;
+  }
+
+  // Stop system audio
+  if (systemMediaRecorder && systemMediaRecorder.state !== 'inactive') {
+    systemMediaRecorder.stop();
+  }
+  if (systemAudioStream) {
+    systemAudioStream.getTracks().forEach(track => track.stop());
+    systemAudioStream = null;
+  }
+  if (deepgramSystemSocket) {
+    deepgramSystemSocket.close();
+    deepgramSystemSocket = null;
+  }
+
+  isCapturingAudio = false;
+  console.log('[Audio] Audio capture stopped');
+}
+
+// ==================== MICROPHONE CAPTURE (REP VOICE) ====================
+
+async function startMicCapture() {
+  console.log('[Mic] Requesting microphone access...');
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 16000
+      }
+    });
+
+    console.log('[Mic] Microphone access granted');
+
+    // Connect to Deepgram for mic transcription
+    connectDeepgramMic();
+
+  } catch (error) {
+    console.error('[Mic] Failed to get microphone:', error);
+    throw error;
+  }
+}
+
+function connectDeepgramMic() {
+  if (!DEEPGRAM_API_KEY) {
+    console.warn('[Mic] No Deepgram API key - mic transcription disabled');
+    return;
+  }
+
+  const params = new URLSearchParams({
+    model: 'nova-2',
+    language: 'en-US',
+    smart_format: 'true',
+    punctuate: 'true',
+    interim_results: 'true',
+    endpointing: '300'
+  });
+
+  const wsUrl = `${DEEPGRAM_WS_URL}?${params.toString()}`;
+  console.log('[Mic] Connecting to Deepgram...');
+
+  deepgramMicSocket = new WebSocket(wsUrl, ['token', DEEPGRAM_API_KEY]);
+
+  deepgramMicSocket.onopen = () => {
+    console.log('[Mic] Deepgram connected - starting MediaRecorder');
+    startMicRecording();
+  };
+
+  deepgramMicSocket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.channel?.alternatives?.[0]?.transcript) {
+        const transcript = data.channel.alternatives[0].transcript;
+        const isFinal = data.is_final;
+
+        if (transcript.trim()) {
+          console.log(`[Mic/REP] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
+
+          // Send rep speech to backend (for adoption detection, not objection detection)
+          if (isFinal && transcript.length > 5) {
+            sendTranscriptToBackend(transcript, 'rep');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Mic] Failed to parse Deepgram response:', e);
+    }
+  };
+
+  deepgramMicSocket.onerror = (error) => {
+    console.error('[Mic] Deepgram WebSocket error:', error);
+  };
+
+  deepgramMicSocket.onclose = (event) => {
+    console.log('[Mic] Deepgram disconnected:', event.code, event.reason);
+  };
+}
+
+function startMicRecording() {
+  if (!micStream || !deepgramMicSocket) return;
+
+  try {
+    micMediaRecorder = new MediaRecorder(micStream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+
+    micMediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0 && deepgramMicSocket?.readyState === WebSocket.OPEN) {
+        deepgramMicSocket.send(event.data);
+      }
+    };
+
+    micMediaRecorder.start(250); // Send chunks every 250ms
+    console.log('[Mic] MediaRecorder started');
+
+  } catch (error) {
+    console.error('[Mic] Failed to start MediaRecorder:', error);
+  }
+}
+
+// ==================== SYSTEM AUDIO CAPTURE (CUSTOMER VOICE) ====================
+
+async function startSystemAudioCapture() {
+  const toggleHint = document.getElementById('toggle-hint');
+
+  try {
+    console.log('[System] ═══════════════════════════════════════════════════');
+    console.log('[System] STARTING SYSTEM AUDIO CAPTURE - DEVICE ENUMERATION');
+
+    const allDevices = await navigator.mediaDevices.enumerateDevices();
+    console.log('[System] ALL DEVICES FOUND (' + allDevices.length + ' total):');
+    allDevices.forEach((device, index) => {
+      console.log('[System]   ' + index + ': ' + device.kind + ' - "' + device.label + '"');
+    });
+
+    const audioOutputs = allDevices.filter(d => d.kind === 'audiooutput');
+    const audioInputs = allDevices.filter(d => d.kind === 'audioinput');
+    console.log('[System] Summary: ' + audioOutputs.length + ' outputs, ' + audioInputs.length + ' inputs');
+    console.log('[System] ═══════════════════════════════════════════════════');
+
+    if (toggleHint) toggleHint.textContent = 'Finding audio devices...';
+
+    console.log('[System] ─────────────────────────────────────────────────────');
+    console.log('[System] AUDIO OUTPUT DEVICES (' + audioOutputs.length + ' total):');
+    audioOutputs.forEach((d, i) => {
+      const isDefault = d.deviceId === 'default' || d.label.toLowerCase().includes('default');
+      const label = d.label || 'UNLABELED';
+      console.log(`[System]   ${i + 1}. ${isDefault ? '★ ' : '  '}"${label}"`);
+      console.log(`[System]      Device ID: ${d.deviceId}`);
+      console.log(`[System]      Group ID: ${d.groupId.substring(0, 30)}...`);
+    });
+
+    console.log('[System] ─────────────────────────────────────────────────────');
+    console.log('[System] AUDIO INPUT DEVICES (' + audioInputs.length + ' total):');
+    audioInputs.forEach((d, i) => {
+      const label = d.label || 'UNLABELED';
+      console.log(`[System]   ${i + 1}. "${label}"`);
+      console.log(`[System]      Device ID: ${d.deviceId}`);
+      console.log(`[System]      Group ID: ${d.groupId.substring(0, 30)}...`);
+    });
+    console.log('[System] ─────────────────────────────────────────────────────');
+
+    // Step 2: Identify the default output device
+    console.log('[System] Step 2: Identifying default audio output...');
+    let defaultOutput = audioOutputs.find(d => d.deviceId === 'default');
+    let defaultOutputName = '';
+
+    if (defaultOutput && defaultOutput.label) {
+      // Extract the actual device name from "Default - DeviceName (Manufacturer)"
+      const match = defaultOutput.label.match(/Default\s*[-–—]\s*(.+)/i);
+      if (match) {
+        defaultOutputName = match[1].trim();
+      } else {
+        defaultOutputName = defaultOutput.label;
+      }
+      console.log(`[System] Default output device: "${defaultOutputName}"`);
+    } else {
+      // Fallback: use first non-default output
+      const firstOutput = audioOutputs.find(d => d.deviceId !== 'default' && d.label);
+      if (firstOutput) {
+        defaultOutputName = firstOutput.label;
+        console.log(`[System] No default found, using first output: "${defaultOutputName}"`);
+      }
+    }
+
+    // Step 3: Find a loopback device matching the output, or fall back to generic loopback
+    console.log('[System] Step 3: Searching for loopback/capture device...');
+
+    let loopbackDevice = null;
+    let matchReason = '';
+
+    // Strategy 1: Look for explicit loopback matching the output device name
+    if (defaultOutputName) {
+      // Extract key part of device name (e.g., "Speakers" from "Speakers (Realtek Audio)")
+      const outputKeywords = defaultOutputName.toLowerCase()
+        .replace(/\([^)]*\)/g, '') // Remove parenthetical info
+        .split(/[\s,\-]+/)
+        .filter(w => w.length > 2 && !['default', 'audio', 'device'].includes(w));
+
+      console.log(`[System] Output keywords: [${outputKeywords.join(', ')}]`);
+
+      for (const input of audioInputs) {
+        const inputLabel = input.label.toLowerCase();
+
+        // Check if this is a loopback for our output device
+        if (inputLabel.includes('loopback')) {
+          for (const keyword of outputKeywords) {
+            if (inputLabel.includes(keyword)) {
+              loopbackDevice = input;
+              matchReason = `Loopback matching output keyword "${keyword}"`;
+              console.log(`[System]   ✓ MATCH: "${input.label}" is loopback for "${keyword}"`);
+              break;
+            }
+          }
+          if (loopbackDevice) break;
+        }
+      }
+    }
+
+    // Strategy 2: Look for any device with "loopback" in name
+    if (!loopbackDevice) {
+      const anyLoopback = audioInputs.find(d => d.label.toLowerCase().includes('loopback'));
+      if (anyLoopback) {
+        loopbackDevice = anyLoopback;
+        matchReason = 'Generic loopback device';
+        console.log(`[System]   ✓ MATCH: "${anyLoopback.label}" (generic loopback)`);
+      }
+    }
+
+    // Strategy 3: Look for "What U Hear" (common on Creative/Sound Blaster cards)
+    if (!loopbackDevice) {
+      const whatUHear = audioInputs.find(d => d.label.toLowerCase().includes('what u hear'));
+      if (whatUHear) {
+        loopbackDevice = whatUHear;
+        matchReason = 'What U Hear device';
+        console.log(`[System]   ✓ MATCH: "${whatUHear.label}" (What U Hear)`);
+      }
+    }
+
+    // Strategy 4: Look for "Stereo Mix" (Realtek and other onboard audio)
+    if (!loopbackDevice) {
+      const stereoMix = audioInputs.find(d => d.label.toLowerCase().includes('stereo mix'));
+      if (stereoMix) {
+        loopbackDevice = stereoMix;
+        matchReason = 'Stereo Mix device';
+        console.log(`[System]   ✓ MATCH: "${stereoMix.label}" (Stereo Mix)`);
+      }
+    }
+
+    // Strategy 5: Look for "Wave Out Mix" or anything with "mix"
+    if (!loopbackDevice) {
+      const mixDevice = audioInputs.find(d => {
+        const label = d.label.toLowerCase();
+        return label.includes('wave out') || label.includes('mix');
+      });
+      if (mixDevice) {
+        loopbackDevice = mixDevice;
+        matchReason = 'Mix device';
+        console.log(`[System]   ✓ MATCH: "${mixDevice.label}" (Mix device)`);
+      }
+    }
+
+    // Log final selection
+    if (loopbackDevice) {
+      console.log('[System] ─────────────────────────────────────────────────────');
+      console.log(`[System] ✅ SELECTED LOOPBACK DEVICE:`);
+      console.log(`[System]    Name: "${loopbackDevice.label}"`);
+      console.log(`[System]    Match reason: ${matchReason}`);
+      console.log(`[System]    Device ID: ${loopbackDevice.deviceId}`);
+      if (defaultOutputName) {
+        console.log(`[System]    Target output: "${defaultOutputName}"`);
+      }
+      console.log('[System] ─────────────────────────────────────────────────────');
+    } else {
+      console.error('[System] ─────────────────────────────────────────────────────');
+      console.error('[System] ❌ NO LOOPBACK/CAPTURE DEVICE FOUND!');
+      console.error('[System] ─────────────────────────────────────────────────────');
+      console.error('[System] Searched for: loopback, what u hear, stereo mix, wave out, mix');
+      console.error('[System] Default output was: ' + (defaultOutputName || 'unknown'));
+      console.error('[System] Available audio inputs:');
+      audioInputs.forEach((d, i) => {
+        console.error(`[System]   ${i + 1}. "${d.label || 'UNLABELED'}"`);
+      });
+      console.error('[System] ─────────────────────────────────────────────────────');
+      console.warn('[System] SOLUTIONS:');
+      console.warn('[System]   Option A: Enable Stereo Mix');
+      console.warn('[System]     1. Right-click speaker icon > Sounds > Recording tab');
+      console.warn('[System]     2. Right-click empty area > Show Disabled Devices');
+      console.warn('[System]     3. Right-click Stereo Mix > Enable');
+      console.warn('[System]   Option B: Use virtual audio cable software');
+      console.warn('[System]     - VB-Audio Virtual Cable (free)');
+      console.warn('[System]     - VoiceMeeter (free)');
+      console.error('[System] ─────────────────────────────────────────────────────');
+      if (toggleHint) toggleHint.textContent = 'No loopback device - mic only';
+      showToast('No system audio capture available', 'warning');
+      return;
+    }
+
+    // Step 4: Capture audio from the selected loopback device
+    console.log('[System] Step 4: Capturing audio from loopback device...');
+    if (toggleHint) toggleHint.textContent = 'Capturing system audio...';
+
+    systemAudioStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: loopbackDevice.deviceId },
+        echoCancellation: false,  // Don't process - we want raw system audio
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
+
+    const audioTracks = systemAudioStream.getAudioTracks();
+
+    if (audioTracks.length === 0) {
+      console.error('[System] ❌ NO AUDIO TRACK from loopback device!');
+      if (toggleHint) toggleHint.textContent = 'System audio failed - mic only';
+      showToast('Failed to capture loopback audio', 'error');
+      systemAudioStream = null;
+      return;
+    }
+
+    console.log('[System] ═══════════════════════════════════════════════════');
+    console.log('[System] ✅ LOOPBACK AUDIO CAPTURED SUCCESSFULLY!');
+    console.log(`[System] Device: ${loopbackDevice.label}`);
+    console.log(`[System] Match reason: ${matchReason}`);
+    console.log(`[System] Audio track: ${audioTracks[0].label}`);
+    console.log(`[System] Track enabled: ${audioTracks[0].enabled}`);
+    console.log(`[System] Track readyState: ${audioTracks[0].readyState}`);
+    try {
+      const settings = audioTracks[0].getSettings();
+      console.log('[System] Settings:', JSON.stringify(settings, null, 2));
+    } catch (e) {
+      console.log('[System] Could not get settings');
+    }
+    console.log('[System] ═══════════════════════════════════════════════════');
+
+    // Update UI
+    if (toggleHint) toggleHint.textContent = 'Listening to mic & speaker';
+
+    // Connect to Deepgram for system audio transcription
+    connectDeepgramSystem();
+
+  } catch (error) {
+    console.error('[System] Failed to get system audio:', error);
+    console.error('[System] Error name:', error.name);
+    console.error('[System] Error message:', error.message);
+
+    if (error.name === 'NotAllowedError') {
+      console.warn('[System] Permission denied');
+      if (toggleHint) toggleHint.textContent = 'Audio permission denied - mic only';
+    } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
+      console.warn('[System] Stereo Mix device not accessible');
+      if (toggleHint) toggleHint.textContent = 'No system audio source - mic only';
+    } else {
+      if (toggleHint) toggleHint.textContent = 'System audio failed - mic only';
+    }
+
+    // Don't throw - continue with mic-only if system audio fails
+    console.warn('[System] Continuing with mic-only capture (no customer voice)');
+    showToast('System audio unavailable - mic only', 'warning');
+  }
+}
+
+function connectDeepgramSystem() {
+  if (!DEEPGRAM_API_KEY) {
+    console.warn('[System] No Deepgram API key - system audio transcription disabled');
+    return;
+  }
+
+  if (!systemAudioStream) {
+    console.warn('[System] No system audio stream available');
+    return;
+  }
+
+  const params = new URLSearchParams({
+    model: 'nova-2',
+    language: 'en-US',
+    smart_format: 'true',
+    punctuate: 'true',
+    interim_results: 'true',
+    endpointing: '300'
+  });
+
+  const wsUrl = `${DEEPGRAM_WS_URL}?${params.toString()}`;
+  console.log('[System] Connecting to Deepgram...');
+
+  deepgramSystemSocket = new WebSocket(wsUrl, ['token', DEEPGRAM_API_KEY]);
+
+  deepgramSystemSocket.onopen = () => {
+    console.log('[System] Deepgram connected - starting MediaRecorder');
+    startSystemRecording();
+  };
+
+  deepgramSystemSocket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.channel?.alternatives?.[0]?.transcript) {
+        const transcript = data.channel.alternatives[0].transcript;
+        const isFinal = data.is_final;
+
+        if (transcript.trim()) {
+          console.log(`[System/CUSTOMER] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
+
+          // Send customer speech to backend for objection detection
+          if (isFinal && transcript.length > 5) {
+            sendTranscriptToBackend(transcript, 'customer');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[System] Failed to parse Deepgram response:', e);
+    }
+  };
+
+  deepgramSystemSocket.onerror = (error) => {
+    console.error('[System] Deepgram WebSocket error:', error);
+  };
+
+  deepgramSystemSocket.onclose = (event) => {
+    console.log('[System] Deepgram disconnected:', event.code, event.reason);
+  };
+}
+
+function startSystemRecording() {
+  if (!systemAudioStream || !deepgramSystemSocket) return;
+
+  // Create audio-only stream
+  const audioTracks = systemAudioStream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    console.error('[System] No audio tracks available');
+    return;
+  }
+
+  const audioOnlyStream = new MediaStream(audioTracks);
+
+  try {
+    systemMediaRecorder = new MediaRecorder(audioOnlyStream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+
+    systemMediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0 && deepgramSystemSocket?.readyState === WebSocket.OPEN) {
+        deepgramSystemSocket.send(event.data);
+      }
+    };
+
+    systemMediaRecorder.start(250); // Send chunks every 250ms
+    console.log('[System] MediaRecorder started');
+
+  } catch (error) {
+    console.error('[System] Failed to start MediaRecorder:', error);
+  }
+}
+
+// ==================== SEND TRANSCRIPT TO BACKEND ====================
+
+// Session-based call ID - ONE ID for entire listening session
+let currentCallId = null;
+
+// Client-side debounce - don't send transcripts within 10 seconds of last nudge
+let lastNudgeTime = 0;
+const CLIENT_DEBOUNCE_MS = 10000;
+
+function getOrCreateCallId() {
+  if (!currentCallId) {
+    currentCallId = `widget_${clientCode}_${Date.now()}`;
+    console.log('[Backend] Created new call ID:', currentCallId);
+  }
+  return currentCallId;
+}
+
+function resetCallId() {
+  console.log('[Backend] Resetting call ID (session ended)');
+  currentCallId = null;
+  lastNudgeTime = 0;  // Also reset debounce timer
+}
+
+async function sendTranscriptToBackend(transcript, speaker) {
+  if (!clientCode || !transcript) return;
+
+  // Client-side debounce check - skip if within 10 seconds of last nudge
+  const timeSinceLastNudge = Date.now() - lastNudgeTime;
+  if (lastNudgeTime > 0 && timeSinceLastNudge < CLIENT_DEBOUNCE_MS) {
+    console.log(`[Backend] Skipping transcript - debounce active (${((CLIENT_DEBOUNCE_MS - timeSinceLastNudge) / 1000).toFixed(1)}s remaining)`);
+    return;
+  }
+
+  const endpoint = `${API_BASE_URL}/api/transcribe`;
+  const callId = getOrCreateCallId();
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        client_code: clientCode,
+        transcript: transcript,
+        speaker: speaker, // 'rep' or 'customer'
+        call_id: callId,
+        source: 'electron_widget',
+        is_final: true  // We only send final transcripts from the widget
+      })
+    });
+
+    if (!response.ok) {
+      console.error('[Backend] Failed to send transcript:', response.status);
+      return;
+    }
+
+    const data = await response.json();
+
+    // If a nudge was returned, process it and start debounce timer
+    if (data.nudge) {
+      console.log('[Backend] Nudge received from transcript:', data.nudge);
+      lastNudgeTime = Date.now();  // Start debounce timer
+      console.log('[Backend] Debounce started - will skip transcripts for 10 seconds');
+      processNudges([data.nudge]);
+    }
+
+  } catch (error) {
+    console.error('[Backend] Error sending transcript:', error);
+  }
 }
