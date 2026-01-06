@@ -119,6 +119,31 @@ function createWindow() {
     return allowedPermissions.includes(permission);
   });
 
+  // IMPORTANT: Set up display media request handler for system audio loopback
+  // This allows getDisplayMedia to capture system audio without showing a picker
+  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+    console.log('[Main] Display media requested');
+
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      console.log('[Main] Got', sources.length, 'screen sources');
+
+      if (sources.length > 0) {
+        // Grant access to first screen with loopback audio
+        callback({
+          video: sources[0],
+          audio: 'loopback'  // This is the key - enables system audio loopback on Windows
+        });
+        console.log('[Main] Granted loopback audio access');
+      } else {
+        console.error('[Main] No screen sources found');
+        callback({});
+      }
+    }).catch(err => {
+      console.error('[Main] Error getting sources:', err);
+      callback({});
+    });
+  });
+
   // Set always on top with highest level to stay above all windows
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
 

@@ -1,5 +1,5 @@
-// CallSteer Widget - Redesigned Renderer
-// Minimal toggle-based UI with glassmorphic design
+// CallSteer Widget - WebSocket-based Renderer
+// Receives real-time nudges from backend via WebSocket (Dialpad integration)
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -23,7 +23,8 @@ console.log('[INIT] Global error handlers installed');
 
 // API Configuration
 const API_BASE_URL = 'https://callsteer-backend-production.up.railway.app';
-const POLL_INTERVAL = 2000;
+const WS_BASE_URL = 'wss://callsteer-backend-production.up.railway.app';
+const POLL_INTERVAL = 5000; // Fallback polling (less frequent since we have WebSocket)
 
 // State
 let clientCode = null;
@@ -34,181 +35,11 @@ let nudges = [];
 let seenNudgeIds = new Set();
 let pollingInterval = null;
 
-// Audio capture state (MediaRecorder - NO ScriptProcessor!)
-let mediaRecorder = null;
-let deepgramSocket = null;
-let micStream = null;
-
-// System audio capture state (for customer voice via WASAPI)
-let systemMediaRecorder = null;
-let systemDeepgramSocket = null;
-let systemStream = null;
-
-// ==================== BACKEND API ====================
-
-/**
- * Send transcript to backend
- * @param {string} transcript - The transcribed text
- * @param {string} speaker - 'rep' for microphone (salesperson) or 'customer' for system audio
- */
-async function sendTranscriptToBackend(transcript, speaker = 'rep') {
-  // Use stored clientCode or fallback
-  const code = clientCode || localStorage.getItem('clientCode') || 'IO1EOF';
-
-  // Build URL with query parameters (backend expects query params, not JSON body)
-  const params = new URLSearchParams({
-    client_code: code,
-    transcript: transcript,
-    speaker: speaker
-  });
-
-  const url = `https://callsteer-backend-production.up.railway.app/api/process-transcript?${params}`;
-
-  console.log('[Backend] Sending transcript:', { transcript: transcript.substring(0, 50), speaker, clientCode: code });
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Backend] Error:', response.status, errorText);
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('[Backend] Response:', data);
-
-    // If there's a nudge, display it
-    if (data.nudge) {
-      console.log('[Backend] NUDGE RECEIVED:', data.nudge);
-      processNudges([data.nudge]);
-    }
-
-    return data;
-  } catch (error) {
-    console.error('[Backend] Request failed:', error);
-    return null;
-  }
-}
-
-// ==================== DEVICE SELECTION ====================
-
-/**
- * Populate the microphone dropdown with available devices
- */
-async function populateMicrophoneList() {
-  try {
-    console.log('[Devices] Populating microphone list...');
-
-    // Request permission first to get device labels
-    try {
-      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      tempStream.getTracks().forEach(t => t.stop());
-    } catch (e) {
-      console.warn('[Devices] Could not get initial permission:', e.message);
-    }
-
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const mics = devices.filter(d => d.kind === 'audioinput');
-
-    const micSelect = document.getElementById('mic-select');
-    if (!micSelect) {
-      console.log('[Devices] No mic-select element found');
-      return;
-    }
-
-    micSelect.innerHTML = '';
-
-    if (mics.length === 0) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No microphones found';
-      micSelect.appendChild(option);
-      return;
-    }
-
-    mics.forEach((mic, index) => {
-      const option = document.createElement('option');
-      option.value = mic.deviceId;
-      option.textContent = mic.label || `Microphone ${index + 1}`;
-      micSelect.appendChild(option);
-    });
-
-    // Load saved preference
-    const savedMic = localStorage.getItem('preferredMic');
-    if (savedMic && mics.some(m => m.deviceId === savedMic)) {
-      micSelect.value = savedMic;
-    }
-
-    // Save when changed
-    micSelect.addEventListener('change', () => {
-      localStorage.setItem('preferredMic', micSelect.value);
-      console.log('[Devices] Saved preferred mic:', micSelect.value);
-    });
-
-    console.log('[Devices] Found', mics.length, 'microphone(s)');
-
-  } catch (e) {
-    console.error('[Devices] Error populating mic list:', e);
-  }
-}
-
-/**
- * Populate the speaker/output dropdown with available devices
- */
-async function populateSpeakerList() {
-  try {
-    console.log('[Devices] Populating speaker list...');
-
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const speakers = devices.filter(d => d.kind === 'audiooutput');
-
-    const speakerSelect = document.getElementById('speaker-select');
-    if (!speakerSelect) {
-      console.log('[Devices] No speaker-select element found');
-      return;
-    }
-
-    speakerSelect.innerHTML = '';
-
-    if (speakers.length === 0) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No speakers found';
-      speakerSelect.appendChild(option);
-      return;
-    }
-
-    speakers.forEach((speaker, index) => {
-      const option = document.createElement('option');
-      option.value = speaker.deviceId;
-      option.textContent = speaker.label || `Speaker ${index + 1}`;
-      speakerSelect.appendChild(option);
-    });
-
-    // Load saved preference
-    const savedSpeaker = localStorage.getItem('preferredSpeaker');
-    if (savedSpeaker && speakers.some(s => s.deviceId === savedSpeaker)) {
-      speakerSelect.value = savedSpeaker;
-    }
-
-    // Save when changed
-    speakerSelect.addEventListener('change', () => {
-      localStorage.setItem('preferredSpeaker', speakerSelect.value);
-      console.log('[Devices] Saved preferred speaker:', speakerSelect.value);
-    });
-
-    console.log('[Devices] Found', speakers.length, 'speaker(s)');
-
-  } catch (e) {
-    console.error('[Devices] Error populating speaker list:', e);
-  }
-}
+// WebSocket state
+let nudgeSocket = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY = 3000;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', initializeApp);
@@ -216,10 +47,6 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 async function initializeApp() {
   setupWindowControls();
   setupLoginHandlers();
-
-  // Populate device lists
-  await populateMicrophoneList();
-  await populateSpeakerList();
 
   // Check for stored login
   if (window.electronAPI) {
@@ -245,6 +72,7 @@ function showLoginScreen() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('main-widget').style.display = 'none';
   stopPolling();
+  disconnectNudgeWebSocket();
 }
 
 function showMainWidget() {
@@ -353,7 +181,7 @@ function showLoginError(message) {
 }
 
 async function handleLogout() {
-  if (isListening) stopMicCapture();
+  disconnectNudgeWebSocket();
 
   if (window.electronAPI) {
     await window.electronAPI.clearClientCode();
@@ -392,8 +220,7 @@ async function toggleListening() {
   if (isListening) {
     // TURN OFF
     console.log('[Toggle] Turning OFF...');
-    stopMicCapture();           // Stop rep's voice capture
-    stopSystemAudioCapture();   // Stop customer's voice capture
+    disconnectNudgeWebSocket();
     isListening = false;
 
     // Update UI to OFF state
@@ -405,6 +232,7 @@ async function toggleListening() {
     if (toggleHint) toggleHint.textContent = 'Tap to start listening';
     if (listeningAnimation) listeningAnimation.style.display = 'none';
 
+    updateConnectionStatus('connected', 'Connected');
     console.log('[Toggle] Now OFF');
   } else {
     // TURN ON
@@ -416,13 +244,12 @@ async function toggleListening() {
       toggleStatus.classList.add('active');
       toggleStatus.textContent = 'ON';
     }
-    if (toggleHint) toggleHint.textContent = 'Listening to your call...';
+    if (toggleHint) toggleHint.textContent = 'Waiting for calls...';
     if (listeningAnimation) listeningAnimation.style.display = 'flex';
 
-    // Start BOTH audio captures
-    await startMicCapture();           // Rep's voice (microphone)
-    await startSystemAudioCapture();   // Customer's voice (system audio/WASAPI)
-    // isListening is set to true inside startMicCapture on success
+    // Connect to WebSocket for real-time nudges
+    connectToNudgeWebSocket(clientCode);
+    isListening = true;
 
     console.log('[Toggle] Now ON');
   }
@@ -440,7 +267,7 @@ function updateToggleUI(on) {
       toggleStatus.classList.add('active');
       toggleStatus.textContent = 'ON';
     }
-    if (toggleHint) toggleHint.textContent = 'Listening to your call...';
+    if (toggleHint) toggleHint.textContent = 'Waiting for calls...';
     if (listeningAnimation) listeningAnimation.style.display = 'flex';
   } else {
     powerToggle?.classList.remove('active');
@@ -453,249 +280,115 @@ function updateToggleUI(on) {
   }
 }
 
-// ==================== CLEAN MEDIARECORDER AUDIO CAPTURE ====================
+// ==================== WEBSOCKET CONNECTION ====================
 
-async function startMicCapture() {
-  const micSelect = document.getElementById('mic-select');
-  const selectedMicId = micSelect?.value;
+function connectToNudgeWebSocket(code) {
+  if (!code) {
+    console.error('[WebSocket] No client code provided');
+    return;
+  }
 
-  console.log('[MIC] Starting microphone capture...');
-  console.log('[MIC] Selected device:', selectedMicId || 'default');
+  const wsUrl = `${WS_BASE_URL}/ws/nudges/${code}`;
+  console.log('[WebSocket] Connecting to:', wsUrl);
 
   try {
-    // Step 1: Get microphone stream
-    console.log('[MIC] Step 1: Requesting microphone access...');
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: selectedMicId ? { exact: selectedMicId } : undefined,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
-      }
-    });
-    console.log('[MIC] Step 1: SUCCESS - Got microphone stream');
+    nudgeSocket = new WebSocket(wsUrl);
 
-    // Step 2: Connect to Deepgram
-    console.log('[MIC] Step 2: Connecting to Deepgram...');
+    nudgeSocket.onopen = () => {
+      console.log('[WebSocket] Connected! Waiting for nudges...');
+      reconnectAttempts = 0;
+      updateConnectionStatus('connected', 'Listening for calls');
 
-    deepgramSocket = new WebSocket(
-      'wss://api.deepgram.com/v1/listen',
-      ['token', 'fbd2742fdb1be9c89ff2681a5f35d504d0bd1ad8']
-    );
-
-    deepgramSocket.onopen = () => {
-      console.log('[DEEPGRAM] Connected! Starting MediaRecorder...');
-
-      // Step 3: Create MediaRecorder
-      try {
-        mediaRecorder = new MediaRecorder(micStream, {
-          mimeType: 'audio/webm;codecs=opus'
-        });
-        console.log('[MIC] Step 3: MediaRecorder created');
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0 && deepgramSocket?.readyState === WebSocket.OPEN) {
-            deepgramSocket.send(event.data);
-          }
-        };
-
-        mediaRecorder.onerror = (err) => {
-          console.error('[MIC] MediaRecorder error:', err);
-        };
-
-        mediaRecorder.start(250); // Send data every 250ms
-        console.log('[MIC] Step 4: MediaRecorder started - capturing audio!');
-        isListening = true;
-        updateConnectionStatus('connected', 'Listening');
-
-      } catch (recorderError) {
-        console.error('[MIC] Failed to create MediaRecorder:', recorderError);
-        isListening = false;
-        updateToggleUI(false);
-        updateConnectionStatus('error', 'Recorder failed');
-      }
+      // Send periodic pings to keep connection alive
+      startPingInterval();
     };
 
-    deepgramSocket.onmessage = (event) => {
+    nudgeSocket.onmessage = (event) => {
+      console.log('[WebSocket] Received message:', event.data);
+
       try {
-        const data = JSON.parse(event.data);
-        const transcript = data.channel?.alternatives?.[0]?.transcript;
-        if (transcript && transcript.trim() && data.is_final) {
-          console.log('[TRANSCRIPT] Rep said:', transcript);
-          // Send to backend for nudge processing
-          if (transcript.length > 3) {
-            sendTranscriptToBackend(transcript, 'rep');
-          }
+        const nudge = JSON.parse(event.data);
+
+        // Handle pong response
+        if (nudge === 'pong' || event.data === 'pong') {
+          console.log('[WebSocket] Pong received');
+          return;
+        }
+
+        // Process the nudge
+        if (nudge && nudge.nudge_id) {
+          console.log('[WebSocket] New nudge received:', nudge);
+          processNudges([nudge]);
         }
       } catch (e) {
-        // Ignore parse errors
+        console.error('[WebSocket] Failed to parse message:', e);
       }
     };
 
-    deepgramSocket.onerror = (err) => {
-      console.error('[DEEPGRAM] WebSocket error:', err);
+    nudgeSocket.onerror = (error) => {
+      console.error('[WebSocket] Error:', error);
       updateConnectionStatus('error', 'Connection error');
     };
 
-    deepgramSocket.onclose = () => {
-      console.log('[DEEPGRAM] Disconnected');
-      if (isListening) {
+    nudgeSocket.onclose = (event) => {
+      console.log('[WebSocket] Disconnected, code:', event.code, 'reason:', event.reason);
+      stopPingInterval();
+
+      // Only reconnect if we're still supposed to be listening
+      if (isListening && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        console.log(`[WebSocket] Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+        updateConnectionStatus('error', 'Reconnecting...');
+
+        setTimeout(() => {
+          if (isListening) {
+            connectToNudgeWebSocket(code);
+          }
+        }, RECONNECT_DELAY);
+      } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error('[WebSocket] Max reconnect attempts reached');
+        updateConnectionStatus('error', 'Connection failed');
         isListening = false;
         updateToggleUI(false);
-        updateConnectionStatus('connected', 'Disconnected');
       }
     };
 
   } catch (error) {
-    console.error('[MIC] Failed to start:', error);
-    isListening = false;
-    updateToggleUI(false);
-    updateConnectionStatus('error', 'Mic access denied');
+    console.error('[WebSocket] Failed to create connection:', error);
+    updateConnectionStatus('error', 'Connection failed');
   }
 }
 
-function stopMicCapture() {
-  console.log('[MIC] Stopping capture...');
+function disconnectNudgeWebSocket() {
+  console.log('[WebSocket] Disconnecting...');
+  stopPingInterval();
 
-  // Stop MediaRecorder
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
+  if (nudgeSocket) {
+    nudgeSocket.close();
+    nudgeSocket = null;
   }
-  mediaRecorder = null;
 
-  // Close Deepgram socket
-  if (deepgramSocket) {
-    deepgramSocket.close();
-  }
-  deepgramSocket = null;
-
-  // Stop mic stream tracks
-  if (micStream) {
-    micStream.getTracks().forEach(track => track.stop());
-  }
-  micStream = null;
-
-  isListening = false;
-  updateConnectionStatus('connected', 'Connected');
-  console.log('[MIC] Stopped');
+  reconnectAttempts = 0;
+  console.log('[WebSocket] Disconnected');
 }
 
-// ==================== SYSTEM AUDIO CAPTURE (Customer Voice via getDisplayMedia) ====================
+// Ping/pong to keep WebSocket alive
+let pingInterval = null;
 
-async function startSystemAudioCapture() {
-  console.log('[SYSTEM] Starting system audio capture...');
-
-  try {
-    // On Windows, getDisplayMedia can capture system audio
-    // User will see a dialog to select what to share
-    console.log('[SYSTEM] Requesting display media with audio...');
-
-    systemStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        width: 1,
-        height: 1,
-        frameRate: 1
-      },
-      audio: true  // This requests system audio
-    });
-
-    console.log('[SYSTEM] Got display media stream');
-    console.log('[SYSTEM] Audio tracks:', systemStream.getAudioTracks().length);
-    console.log('[SYSTEM] Video tracks:', systemStream.getVideoTracks().length);
-
-    // Check if we got audio
-    if (systemStream.getAudioTracks().length === 0) {
-      console.error('[SYSTEM] No audio track in stream - user may not have shared audio');
-      return;
+function startPingInterval() {
+  stopPingInterval();
+  pingInterval = setInterval(() => {
+    if (nudgeSocket && nudgeSocket.readyState === WebSocket.OPEN) {
+      nudgeSocket.send('ping');
     }
-
-    // Remove video tracks (we only want audio)
-    systemStream.getVideoTracks().forEach(track => {
-      track.stop();
-      systemStream.removeTrack(track);
-    });
-
-    console.log('[SYSTEM] Video tracks removed, connecting to Deepgram...');
-
-    // Connect to Deepgram
-    systemDeepgramSocket = new WebSocket(
-      'wss://api.deepgram.com/v1/listen',
-      ['token', 'fbd2742fdb1be9c89ff2681a5f35d504d0bd1ad8']
-    );
-
-    systemDeepgramSocket.onopen = () => {
-      console.log('[SYSTEM-DEEPGRAM] Connected!');
-
-      systemMediaRecorder = new MediaRecorder(systemStream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-
-      systemMediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && systemDeepgramSocket?.readyState === WebSocket.OPEN) {
-          systemDeepgramSocket.send(event.data);
-        }
-      };
-
-      systemMediaRecorder.onerror = (err) => {
-        console.error('[SYSTEM] MediaRecorder error:', err);
-      };
-
-      systemMediaRecorder.start(250);
-      console.log('[SYSTEM] Now capturing customer audio!');
-    };
-
-    systemDeepgramSocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const transcript = data.channel?.alternatives?.[0]?.transcript;
-        if (transcript && transcript.trim() && data.is_final) {
-          console.log('[TRANSCRIPT] Customer said:', transcript);
-          // Send as CUSTOMER - this triggers objection detection!
-          if (transcript.length > 3) {
-            sendTranscriptToBackend(transcript, 'customer');
-          }
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    };
-
-    systemDeepgramSocket.onerror = (err) => {
-      console.error('[SYSTEM-DEEPGRAM] WebSocket error:', err);
-    };
-
-    systemDeepgramSocket.onclose = () => {
-      console.log('[SYSTEM-DEEPGRAM] Disconnected');
-    };
-
-  } catch (error) {
-    console.error('[SYSTEM] Failed:', error.name, error.message);
-
-    if (error.name === 'NotAllowedError') {
-      console.log('[SYSTEM] User denied permission or closed dialog');
-    }
-  }
+  }, 30000); // Ping every 30 seconds
 }
 
-function stopSystemAudioCapture() {
-  console.log('[SYSTEM] Stopping system audio capture...');
-
-  if (systemMediaRecorder && systemMediaRecorder.state !== 'inactive') {
-    systemMediaRecorder.stop();
+function stopPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
   }
-  systemMediaRecorder = null;
-
-  if (systemDeepgramSocket) {
-    systemDeepgramSocket.close();
-  }
-  systemDeepgramSocket = null;
-
-  if (systemStream) {
-    systemStream.getTracks().forEach(track => track.stop());
-  }
-  systemStream = null;
-
-  console.log('[SYSTEM] Stopped');
 }
 
 // ==================== NUDGES ====================
@@ -720,7 +413,6 @@ function stopPolling() {
 
 async function fetchNudges() {
   if (!clientCode) {
-    updateConnectionStatus('error', 'Not connected');
     return;
   }
 
@@ -730,7 +422,6 @@ async function fetchNudges() {
     if (!response.ok) throw new Error('Failed to fetch');
 
     const data = await response.json();
-    updateConnectionStatus('connected', 'Connected');
 
     if (data?.nudges?.length > 0) {
       processNudges(data.nudges);
@@ -738,7 +429,6 @@ async function fetchNudges() {
 
   } catch (error) {
     console.error('Fetch error:', error);
-    updateConnectionStatus('error', 'Connection error');
   }
 }
 
@@ -846,8 +536,8 @@ function updateConnectionStatus(status, text) {
   const headerStatus = document.getElementById('header-status');
 
   // Update footer
-  statusEl.className = 'footer ' + status;
-  statusText.textContent = text;
+  if (statusEl) statusEl.className = 'footer ' + status;
+  if (statusText) statusText.textContent = text;
 
   // Update header indicator
   if (headerStatus) {
