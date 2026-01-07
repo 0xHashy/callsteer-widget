@@ -188,7 +188,8 @@ function showMainWidget() {
   setupToggle();
   setupNudgeActions();
   setupStatsTabs();
-  startPolling();
+  // DON'T start polling here - only poll when listening is ON
+  // startPolling() is now called in toggleListening() when turning ON
   updateConnectionStatus('connected', 'Connected');
 
   // Initialize device selection
@@ -498,7 +499,15 @@ async function toggleListening() {
     console.log('[Toggle] Turning OFF...');
     disconnectNudgeWebSocket();
     stopAudioCapture(); // Stop mic and system audio capture
+    stopPolling(); // Stop fetching old nudges
     isListening = false;
+
+    // Clear any displayed nudges when turning off - fresh start for next session
+    nudges = [];
+    seenNudgeIds = new Set();
+    currentNudge = null;
+    currentSuggestionText = '';
+    displayNudge(null);
 
     // Update UI to OFF state
     powerToggle?.classList.remove('active');
@@ -519,6 +528,17 @@ async function toggleListening() {
     console.log('[Toggle] Turning ON...');
     isListening = true; // Set this first so updateNudgeEmptyState works correctly
 
+    // Clear old nudges - start fresh for this listening session
+    nudges = [];
+    seenNudgeIds = new Set();
+    currentNudge = null;
+    currentSuggestionText = '';
+    displayNudge(null);
+
+    // Mark session start time - only show nudges created AFTER this moment
+    sessionStartTime = new Date().toISOString();
+    console.log('[Session] Started at:', sessionStartTime);
+
     // Update UI to ON state first
     powerToggle?.classList.add('active');
     if (toggleStatus) {
@@ -533,6 +553,9 @@ async function toggleListening() {
 
     // Connect to WebSocket for real-time nudges (from Dialpad)
     connectToNudgeWebSocket(clientCode);
+
+    // Start polling for nudges (backup to WebSocket)
+    startPolling();
 
     // Start audio capture (mic = rep, system = customer)
     try {
@@ -719,14 +742,24 @@ function stopPolling() {
   }
 }
 
+// Track when this listening session started - only show nudges after this time
+let sessionStartTime = null;
+
 async function fetchNudges() {
-  if (!clientCode) {
+  if (!clientCode || !isListening) {
     return;
   }
 
   try {
-    // Include rep_id for per-device filtering
-    const response = await fetch(`${API_BASE_URL}/api/nudges?client_code=${clientCode}&rep_id=${encodeURIComponent(repId)}`);
+    // Include rep_id for per-device filtering and session start time
+    let url = `${API_BASE_URL}/api/nudges?client_code=${clientCode}&rep_id=${encodeURIComponent(repId)}`;
+
+    // Only fetch nudges created after this session started
+    if (sessionStartTime) {
+      url += `&after=${encodeURIComponent(sessionStartTime)}`;
+    }
+
+    const response = await fetch(url);
 
     if (!response.ok) throw new Error('Failed to fetch');
 
