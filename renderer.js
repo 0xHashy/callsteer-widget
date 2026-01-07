@@ -1360,6 +1360,9 @@ function onRebuttalUsed() {
   // Save to localStorage
   saveRebuttalStats();
 
+  // Sync adoption to backend for accurate leaderboard stats
+  syncAdoptionToBackend();
+
   // Show success animation on nudge card
   showRebuttalSuccess();
 
@@ -1376,6 +1379,41 @@ function onRebuttalUsed() {
 
   // Clear current suggestion to prevent re-matching
   currentSuggestionText = '';
+}
+
+/**
+ * Sync adoption to backend so leaderboard stats are accurate
+ */
+async function syncAdoptionToBackend() {
+  if (!currentNudge?.nudge_id) {
+    console.log('[Adoption] No current nudge to sync');
+    return;
+  }
+
+  const nudgeId = currentNudge.nudge_id;
+  console.log('[Adoption] Syncing to backend:', nudgeId);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/nudges/${encodeURIComponent(nudgeId)}/adopt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      console.error('[Adoption] Backend sync failed:', response.status);
+      return;
+    }
+
+    const data = await response.json();
+    console.log('[Adoption] Backend sync success:', data.status);
+
+    // Invalidate leaderboard cache so next fetch gets fresh data
+    lastLeaderboardFetch = 0;
+
+  } catch (error) {
+    console.error('[Adoption] Failed to sync:', error);
+    // Don't break the user experience - local stats are still tracked
+  }
 }
 
 /**
