@@ -1,6 +1,11 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, clipboard, shell, desktopCapturer, session } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+
+// Configure auto-updater
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 // Enable audio capture features for Windows WASAPI - MUST be before app.ready
 app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
@@ -457,3 +462,99 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   app.isQuitting = true;
 });
+
+// ============================================
+// AUTO-UPDATE FUNCTIONALITY
+// ============================================
+
+function setupAutoUpdater() {
+  // Check for updates on startup (with delay to not slow launch)
+  setTimeout(() => {
+    console.log('[AutoUpdater] Checking for updates...');
+    autoUpdater.checkForUpdates().catch(err => {
+      console.log('[AutoUpdater] Update check failed:', err.message);
+    });
+  }, 5000);
+
+  // Check for updates every 30 minutes
+  setInterval(() => {
+    console.log('[AutoUpdater] Periodic update check...');
+    autoUpdater.checkForUpdates().catch(err => {
+      console.log('[AutoUpdater] Update check failed:', err.message);
+    });
+  }, 30 * 60 * 1000);
+}
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('[AutoUpdater] Checking for update...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'checking' });
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('[AutoUpdater] Update available:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'available',
+      version: info.version
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('[AutoUpdater] Already up to date:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'up-to-date' });
+  }
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  console.log(`[AutoUpdater] Download progress: ${Math.round(progress.percent)}%`);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'downloading',
+      percent: Math.round(progress.percent)
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('[AutoUpdater] Update downloaded:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'ready',
+      version: info.version
+    });
+  }
+  // The update will install on next app quit (autoInstallOnAppQuit = true)
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('[AutoUpdater] Error:', err.message);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'error',
+      message: err.message
+    });
+  }
+});
+
+// IPC handler to manually trigger update check
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, version: result?.updateInfo?.version };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC handler to get current app version
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
+// Start auto-updater when app is ready
+app.on('ready', setupAutoUpdater);

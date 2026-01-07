@@ -30,9 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
   disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
 
-  // Widget mode control
-  setWidgetMode: (mode, dimensions) => ipcRenderer.send('set-widget-mode', mode, dimensions),
-
   // Logout event listener
-  onLogoutRequest: (callback) => ipcRenderer.on('logout-request', () => callback())
+  onLogoutRequest: (callback) => ipcRenderer.on('logout-request', () => callback()),
+
+  // Auto-update
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, status) => callback(status))
 });

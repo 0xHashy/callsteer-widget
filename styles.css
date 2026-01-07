@@ -301,6 +301,25 @@ button, select {
   letter-spacing: 0.3px;
 }
 
+.signout-btn {
+  -webkit-app-region: no-drag;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+}
+
+.signout-btn:hover {
+  background: rgba(255, 69, 58, 0.2);
+  color: var(--error);
+}
+
 /* ==================== CONTENT AREA ==================== */
 
 .content {
@@ -940,4 +959,71 @@ button, select {
 
 .toast.warning {
   border-color: rgba(255, 159, 10, 0.4);
+}
+
+/* ==================== REBUTTAL SUCCESS ANIMATION ==================== */
+
+.nudge-card.rebuttal-success {
+  border-color: var(--success) !important;
+  background: linear-gradient(135deg, rgba(52, 199, 89, 0.15), rgba(52, 199, 89, 0.08)) !important;
+}
+
+.rebuttal-checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(18, 18, 24, 0.9);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: checkmarkFadeIn 0.3s ease-out;
+  z-index: 10;
+}
+
+@keyframes checkmarkFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.rebuttal-checkmark svg {
+  filter: drop-shadow(0 0 10px rgba(52, 199, 89, 0.5));
+}
+
+.checkmark-circle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  animation: checkmarkCircle 0.6s ease-out forwards;
+}
+
+@keyframes checkmarkCircle {
+  to { stroke-dashoffset: 0; }
+}
+
+.checkmark-check {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: checkmarkCheck 0.4s 0.3s ease-out forwards;
+}
+
+@keyframes checkmarkCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+.rebuttal-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+  letter-spacing: 0.5px;
+  animation: labelBounce 0.4s 0.5s ease-out both;
+}
+
+@keyframes labelBounce {
+  0% { opacity: 0; transform: translateY(10px); }
+  60% { transform: translateY(-3px); }
+  100% { opacity: 1; transform: translateY(0); }
 }

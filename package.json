@@ -22,7 +22,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "electron-audio-loopback": "^1.0.0"
+    "electron-audio-loopback": "^1.0.0",
+    "electron-updater": "^6.7.3"
   },
   "devDependencies": {
     "electron": "^31.0.1",
@@ -60,6 +61,12 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "include": "build/installer.nsh"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "0xHashy",
+      "repo": "callsteer-widget",
+      "private": true
     },
     "files": [
       "**/*",

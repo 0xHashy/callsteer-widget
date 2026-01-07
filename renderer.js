@@ -23,6 +23,12 @@ let selectedSpeakerId = null;
 let popupDismissTimer = null;
 const POPUP_AUTO_DISMISS_MS = 15000;
 
+// ==================== REBUTTAL TRACKING STATE ====================
+let currentSuggestionText = '';      // The current nudge suggestion to match against
+let rebuttalsUsedToday = 0;          // Count of rebuttals used today
+let rebuttalsUsedTotal = 0;          // Total rebuttals used in session
+const REBUTTAL_MATCH_THRESHOLD = 0.5; // 50% word match = rebuttal used
+
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
   console.error('[WINDOW ERROR]', msg);
@@ -109,6 +115,10 @@ function showMainWidget() {
   // Initialize device selection
   loadSavedDevices();
   populateDeviceDropdowns();
+
+  // Load rebuttal tracking stats
+  loadRebuttalStats();
+  updateStats();
 }
 
 // ==================== WINDOW CONTROLS ====================
@@ -129,6 +139,33 @@ function setupWindowControls() {
   document.getElementById('minimize-btn')?.addEventListener('click', () => {
     window.electronAPI?.minimizeWindow();
   });
+
+  // Sign out button
+  document.getElementById('signout-btn')?.addEventListener('click', handleSignOut);
+}
+
+async function handleSignOut() {
+  // Stop listening if active
+  if (isListening) {
+    stopListening();
+  }
+
+  // Clear stored credentials
+  if (window.electronAPI) {
+    await window.electronAPI.clearClientCode();
+  }
+
+  // Reset state
+  clientCode = null;
+  clientInfo = null;
+
+  // Show login screen
+  document.getElementById('main-widget').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('client-code-input').value = '';
+  document.getElementById('login-error').textContent = '';
+
+  console.log('[Auth] Signed out');
 }
 
 
@@ -593,6 +630,7 @@ function displayNudge(nudge) {
   if (!nudge) {
     nudgeCard.style.display = 'none';
     nudgeEmpty.style.display = 'flex';
+    currentSuggestionText = ''; // Clear suggestion when no nudge
     return;
   }
 
@@ -606,6 +644,10 @@ function displayNudge(nudge) {
   // Handle two-part format: echo + suggestion
   const echo = nudge.echo || '';
   const suggestion = nudge.suggestion || 'No suggestion';
+
+  // Store suggestion for rebuttal tracking
+  currentSuggestionText = suggestion;
+  console.log('[Rebuttal] Tracking suggestion:', currentSuggestionText);
 
   if (echo && echo.trim()) {
     // Display echo on its own line, styled differently
@@ -749,13 +791,20 @@ function dismissCurrentNudge() {
 
 function updateStats() {
   const todayNudges = nudges.filter(n => isToday(n.timestamp)).length;
-  const total = nudges.length;
-  const adoptionRate = total > 0 ? Math.min(100, total * 5) : 0;
-  const streak = Math.floor(total / 10);
 
-  document.getElementById('stat-streak').textContent = streak;
-  document.getElementById('stat-adoption').textContent = `${adoptionRate}%`;
-  document.getElementById('stat-nudges').textContent = todayNudges;
+  // Calculate adoption rate: rebuttals used / nudges received today
+  const adoptionRate = todayNudges > 0
+    ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
+    : 0;
+
+  // Update UI
+  const rebuttalsEl = document.getElementById('stat-rebuttals');
+  const adoptionEl = document.getElementById('stat-adoption');
+  const nudgesEl = document.getElementById('stat-nudges');
+
+  if (rebuttalsEl) rebuttalsEl.textContent = rebuttalsUsedToday;
+  if (adoptionEl) adoptionEl.textContent = `${adoptionRate}%`;
+  if (nudgesEl) nudgesEl.textContent = todayNudges;
 }
 
 // ==================== CONNECTION STATUS ====================
@@ -825,6 +874,175 @@ function showToast(message, type = 'success') {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, 2000);
+}
+
+// ==================== REBUTTAL TRACKING ====================
+
+/**
+ * Fuzzy match rep speech against the current suggestion
+ * Returns similarity score 0-1 based on word overlap
+ */
+function calculateSimilarity(repSpeech, suggestion) {
+  if (!repSpeech || !suggestion) return 0;
+
+  // Normalize both strings: lowercase, remove punctuation, split into words
+  const normalize = (text) => text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 2); // Ignore tiny words like "a", "to"
+
+  const repWords = normalize(repSpeech);
+  const suggestionWords = normalize(suggestion);
+
+  if (suggestionWords.length === 0) return 0;
+
+  // Count how many suggestion words appear in rep speech
+  let matchCount = 0;
+  for (const sugWord of suggestionWords) {
+    // Check for exact match or close match (substring)
+    const found = repWords.some(repWord =>
+      repWord === sugWord ||
+      repWord.includes(sugWord) ||
+      sugWord.includes(repWord)
+    );
+    if (found) matchCount++;
+  }
+
+  const similarity = matchCount / suggestionWords.length;
+  console.log(`[Rebuttal] Similarity: ${(similarity * 100).toFixed(0)}% (${matchCount}/${suggestionWords.length} words)`);
+  return similarity;
+}
+
+/**
+ * Check if rep speech matches the current suggestion
+ */
+function checkRebuttalMatch(repTranscript) {
+  if (!currentSuggestionText || !repTranscript) return;
+
+  const similarity = calculateSimilarity(repTranscript, currentSuggestionText);
+
+  if (similarity >= REBUTTAL_MATCH_THRESHOLD) {
+    console.log('[Rebuttal] ✅ MATCH DETECTED! Rep used the rebuttal.');
+    onRebuttalUsed();
+  }
+}
+
+/**
+ * Called when rep successfully uses a rebuttal
+ */
+function onRebuttalUsed() {
+  // Increment counters
+  rebuttalsUsedToday++;
+  rebuttalsUsedTotal++;
+
+  // Save to localStorage
+  saveRebuttalStats();
+
+  // Show success animation on nudge card
+  showRebuttalSuccess();
+
+  // Play success sound
+  playSuccessSound();
+
+  // Update stats display
+  updateStats();
+
+  // Auto-dismiss the nudge after animation
+  setTimeout(() => {
+    dismissCurrentNudge();
+  }, 1500);
+
+  // Clear current suggestion to prevent re-matching
+  currentSuggestionText = '';
+}
+
+/**
+ * Show checkmark animation on nudge card
+ */
+function showRebuttalSuccess() {
+  const nudgeCard = document.getElementById('nudge-card');
+  if (!nudgeCard) return;
+
+  // Add success class for animation
+  nudgeCard.classList.add('rebuttal-success');
+
+  // Create checkmark overlay
+  const checkmark = document.createElement('div');
+  checkmark.className = 'rebuttal-checkmark';
+  checkmark.innerHTML = `
+    <svg viewBox="0 0 52 52" width="48" height="48">
+      <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#34C759" stroke-width="3"/>
+      <path class="checkmark-check" fill="none" stroke="#34C759" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M14 27l8 8 16-16"/>
+    </svg>
+    <span class="rebuttal-label">Nice!</span>
+  `;
+  nudgeCard.appendChild(checkmark);
+
+  // Remove after animation
+  setTimeout(() => {
+    checkmark.remove();
+    nudgeCard.classList.remove('rebuttal-success');
+  }, 1500);
+}
+
+/**
+ * Play subtle success sound
+ */
+function playSuccessSound() {
+  try {
+    // Success chime - pleasant, short, not annoying
+    const audio = new Audio('data:audio/wav;base64,UklGRqQEAABXQVZFZm10IBAAAAABAAEARKwAAESsAAABAAgAZGF0YYAEAAB/f39/gICBgYKCg4OEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f');
+    audio.volume = 0.4;
+    audio.play().catch(() => {});
+  } catch (e) {
+    console.log('[Audio] Success sound failed:', e);
+  }
+}
+
+/**
+ * Save rebuttal stats to localStorage
+ */
+function saveRebuttalStats() {
+  try {
+    const today = new Date().toDateString();
+    const stored = JSON.parse(localStorage.getItem('callsteer_rebuttal_stats') || '{}');
+
+    // Reset daily count if it's a new day
+    if (stored.date !== today) {
+      stored.date = today;
+      stored.todayCount = 0;
+    }
+
+    stored.todayCount = rebuttalsUsedToday;
+    stored.totalCount = (stored.totalCount || 0) + 1;
+
+    localStorage.setItem('callsteer_rebuttal_stats', JSON.stringify(stored));
+  } catch (e) {
+    console.error('[Rebuttal] Failed to save stats:', e);
+  }
+}
+
+/**
+ * Load rebuttal stats from localStorage
+ */
+function loadRebuttalStats() {
+  try {
+    const today = new Date().toDateString();
+    const stored = JSON.parse(localStorage.getItem('callsteer_rebuttal_stats') || '{}');
+
+    // Reset if it's a new day
+    if (stored.date === today) {
+      rebuttalsUsedToday = stored.todayCount || 0;
+    } else {
+      rebuttalsUsedToday = 0;
+    }
+
+    rebuttalsUsedTotal = stored.totalCount || 0;
+    console.log('[Rebuttal] Loaded stats:', { today: rebuttalsUsedToday, total: rebuttalsUsedTotal });
+  } catch (e) {
+    console.error('[Rebuttal] Failed to load stats:', e);
+  }
 }
 
 // ==================== AUDIO CAPTURE (MIC + SYSTEM) ====================
@@ -968,8 +1186,9 @@ function connectDeepgramMic() {
         if (transcript.trim()) {
           console.log(`[Mic/REP] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
-          // Send rep speech to backend (for adoption detection, not objection detection)
+          // Check if rep used the suggested rebuttal (fuzzy match)
           if (isFinal && transcript.length > 5) {
+            checkRebuttalMatch(transcript);
             sendTranscriptToBackend(transcript, 'rep');
           }
         }
