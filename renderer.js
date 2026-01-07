@@ -494,7 +494,18 @@ function displayNudge(nudge) {
   // Set content
   nudgeType.textContent = (nudge.category || 'TIP').toUpperCase().replace(/_/g, ' ');
   nudgeTime.textContent = formatTimestamp(nudge.timestamp);
-  nudgeText.textContent = nudge.suggestion || 'No suggestion';
+
+  // Handle two-part format: echo + suggestion
+  const echo = nudge.echo || '';
+  const suggestion = nudge.suggestion || 'No suggestion';
+
+  if (echo && echo.trim()) {
+    // Display echo on its own line, styled differently
+    nudgeText.innerHTML = `<span class="nudge-echo">"${echo}"</span><span class="nudge-suggestion">${suggestion}</span>`;
+  } else {
+    // No echo, just show suggestion
+    nudgeText.innerHTML = `<span class="nudge-suggestion">${suggestion}</span>`;
+  }
 
   // Add animation
   nudgeCard.style.animation = 'none';
@@ -505,10 +516,17 @@ function displayNudge(nudge) {
 function copyCurrentNudge() {
   if (!currentNudge?.suggestion) return;
 
+  // Combine echo and suggestion for copying
+  const echo = currentNudge.echo || '';
+  const suggestion = currentNudge.suggestion || '';
+  const textToCopy = echo && echo.trim()
+    ? `"${echo}" ${suggestion}`
+    : suggestion;
+
   if (window.electronAPI?.copyToClipboard) {
-    window.electronAPI.copyToClipboard(currentNudge.suggestion);
+    window.electronAPI.copyToClipboard(textToCopy);
   } else {
-    navigator.clipboard.writeText(currentNudge.suggestion);
+    navigator.clipboard.writeText(textToCopy);
   }
 
   showToast('Copied!', 'success');

@@ -363,6 +363,24 @@ input[type="text"] {
   margin-bottom: 10px;
 }
 
+/* Two-part nudge format: echo + suggestion */
+.nudge-echo {
+  display: block;
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.nudge-suggestion {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.5;
+}
+
 .nudge-actions {
   display: flex;
   gap: 8px;
