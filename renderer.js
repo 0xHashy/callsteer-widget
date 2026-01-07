@@ -31,7 +31,11 @@ let nudgesReceivedToday = 0;         // Count of nudges received today (persiste
 let currentStreak = 0;               // Current consecutive rebuttals used
 let bestStreak = 0;                  // Best streak ever
 let lastRebuttalWasUsed = false;     // Track if last nudge was converted
-const REBUTTAL_MATCH_THRESHOLD = 0.4; // 40% word match = rebuttal used (allows paraphrasing)
+const REBUTTAL_MATCH_THRESHOLD = 0.35; // 35% word match = rebuttal used (allows paraphrasing)
+
+// Rolling transcript buffer - accumulates rep speech for better matching
+let repTranscriptBuffer = [];        // Array of {text, timestamp} chunks
+const TRANSCRIPT_BUFFER_WINDOW_MS = 30000; // Keep last 30 seconds of speech
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -827,6 +831,7 @@ function displayNudge(nudge) {
 
   // Store suggestion for rebuttal tracking
   currentSuggestionText = suggestion;
+  repTranscriptBuffer = []; // Clear buffer when new nudge appears
   console.log('[Rebuttal] Tracking suggestion:', currentSuggestionText);
 
   if (echo && echo.trim()) {
@@ -1299,12 +1304,13 @@ function showToast(message, type = 'success') {
 function calculateSimilarity(repSpeech, suggestion) {
   if (!repSpeech || !suggestion) return 0;
 
-  // Normalize both strings: lowercase, remove punctuation, split into words
+  // Normalize: lowercase, remove punctuation, split into words
+  // Keep words with 2+ chars to catch important short words like "no", "we", "ok"
   const normalize = (text) => text
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
     .split(/\s+/)
-    .filter(word => word.length > 2); // Ignore tiny words like "a", "to"
+    .filter(word => word.length >= 2);
 
   const repWords = normalize(repSpeech);
   const suggestionWords = normalize(suggestion);
@@ -1314,31 +1320,58 @@ function calculateSimilarity(repSpeech, suggestion) {
   // Count how many suggestion words appear in rep speech
   let matchCount = 0;
   for (const sugWord of suggestionWords) {
-    // Check for exact match or close match (substring)
+    // Check for exact match, substring, or stem match (first 4 chars)
+    const stem = sugWord.slice(0, 4);
     const found = repWords.some(repWord =>
       repWord === sugWord ||
       repWord.includes(sugWord) ||
-      sugWord.includes(repWord)
+      sugWord.includes(repWord) ||
+      (stem.length >= 4 && repWord.startsWith(stem)) // Stem matching for conjugations
     );
     if (found) matchCount++;
   }
 
   const similarity = matchCount / suggestionWords.length;
-  console.log(`[Rebuttal] Similarity: ${(similarity * 100).toFixed(0)}% (${matchCount}/${suggestionWords.length} words)`);
+  // Only log if there's a meaningful match to reduce noise
+  if (similarity >= 0.2) {
+    console.log(`[Rebuttal] Match: ${(similarity * 100).toFixed(0)}% (${matchCount}/${suggestionWords.length} words)`);
+  }
   return similarity;
 }
 
 /**
- * Check if rep speech matches the current suggestion
+ * Add transcript chunk to rolling buffer and check for rebuttal match
  */
 function checkRebuttalMatch(repTranscript) {
-  if (!currentSuggestionText || !repTranscript) return;
+  if (!repTranscript) return;
 
-  const similarity = calculateSimilarity(repTranscript, currentSuggestionText);
+  const now = Date.now();
 
-  if (similarity >= REBUTTAL_MATCH_THRESHOLD) {
-    console.log('[Rebuttal] ✅ MATCH DETECTED! Rep used the rebuttal.');
+  // Add to buffer
+  repTranscriptBuffer.push({ text: repTranscript, timestamp: now });
+
+  // Prune old entries (older than 30 seconds)
+  repTranscriptBuffer = repTranscriptBuffer.filter(
+    chunk => (now - chunk.timestamp) < TRANSCRIPT_BUFFER_WINDOW_MS
+  );
+
+  if (!currentSuggestionText) return;
+
+  // Build combined transcript from buffer (last 30 seconds of speech)
+  const combinedTranscript = repTranscriptBuffer.map(c => c.text).join(' ');
+
+  // Check similarity against the full accumulated speech
+  const similarity = calculateSimilarity(combinedTranscript, currentSuggestionText);
+
+  // Also check just this chunk in case it's a perfect match
+  const chunkSimilarity = calculateSimilarity(repTranscript, currentSuggestionText);
+
+  if (similarity >= REBUTTAL_MATCH_THRESHOLD || chunkSimilarity >= REBUTTAL_MATCH_THRESHOLD) {
+    const matchType = chunkSimilarity >= REBUTTAL_MATCH_THRESHOLD ? 'chunk' : 'accumulated';
+    console.log(`[Rebuttal] ✅ MATCH DETECTED (${matchType})! Rep used the rebuttal.`);
     onRebuttalUsed();
+    // Clear buffer after successful match to prevent double-counting
+    repTranscriptBuffer = [];
   }
 }
 
