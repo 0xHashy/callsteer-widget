@@ -1371,14 +1371,40 @@ function showRebuttalSuccess() {
 }
 
 /**
- * Play subtle success sound
+ * Play subtle success sound - pleasant two-tone chime
  */
 function playSuccessSound() {
   try {
-    // Success chime - pleasant, short, not annoying
-    const audio = new Audio('data:audio/wav;base64,UklGRqQEAABXQVZFZm10IBAAAAABAAEARKwAAESsAAABAAgAZGF0YYAEAAB/f39/gICBgYKCg4OEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f');
-    audio.volume = 0.4;
-    audio.play().catch(() => {});
+    // Use Web Audio API for a clean, pleasant synthesized chime
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Create a pleasant two-note chime (like a gentle "ding-ding")
+    const playTone = (frequency, startTime, duration) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Sine wave for a soft, pure tone
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+
+      // Gentle envelope - fade in quickly, sustain, fade out smoothly
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); // Quick fade in
+      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration); // Smooth fade out
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    const now = audioContext.currentTime;
+
+    // Two ascending notes - G5 and C6 (pleasant interval)
+    playTone(784, now, 0.15);        // G5 - first note
+    playTone(1047, now + 0.08, 0.2); // C6 - second note (slightly delayed)
+
   } catch (e) {
     console.log('[Audio] Success sound failed:', e);
   }
