@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CallSteer</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- Login Screen -->
@@ -26,35 +23,25 @@
     <!-- Login Content -->
     <div class="login-content">
       <div class="logo-container">
-        <!-- Steering Wheel Logo SVG -->
-        <svg class="logo-svg" viewBox="0 0 64 64" width="80" height="80">
+        <!-- Navigation Pin / Location Marker -->
+        <svg class="logo-svg" viewBox="0 0 48 48" width="56" height="56">
           <defs>
             <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#00d4aa"/>
-              <stop offset="50%" style="stop-color:#00a8ff"/>
-              <stop offset="100%" style="stop-color:#a855f7"/>
+              <stop offset="0%" style="stop-color:#00C7BE"/>
+              <stop offset="100%" style="stop-color:#4A90D9"/>
             </linearGradient>
           </defs>
-          <!-- Outer wheel ring -->
-          <circle cx="32" cy="32" r="26" fill="none" stroke="url(#logoGradient)" stroke-width="3"/>
-          <!-- Inner hub -->
-          <circle cx="32" cy="32" r="8" fill="none" stroke="url(#logoGradient)" stroke-width="2.5"/>
-          <!-- Spokes (6 spokes for steering wheel look) -->
-          <g stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round">
-            <!-- Top spoke (power symbol line) -->
-            <line x1="32" y1="6" x2="32" y2="24"/>
-            <!-- Other spokes -->
-            <line x1="32" y1="40" x2="32" y2="58"/>
-            <line x1="9.5" y1="19" x2="24" y2="28"/>
-            <line x1="54.5" y1="19" x2="40" y2="28"/>
-            <line x1="9.5" y1="45" x2="24" y2="36"/>
-            <line x1="54.5" y1="45" x2="40" y2="36"/>
-          </g>
+          <!-- Location pin with route -->
+          <path d="M24 4C16.3 4 10 10.3 10 18c0 10 14 26 14 26s14-16 14-26c0-7.7-6.3-14-14-14z"
+                fill="none" stroke="url(#logoGradient)" stroke-width="2.5"/>
+          <circle cx="24" cy="18" r="5" fill="url(#logoGradient)"/>
+          <!-- Arrow pointing up (direction) -->
+          <path d="M24 12l-3 4h6l-3-4z" fill="white"/>
         </svg>
       </div>
 
       <h1 class="brand-title">CallSteer</h1>
-      <p class="brand-subtitle">AI Sales Coach</p>
+      <p class="brand-subtitle">Navigate to Close</p>
 
       <div class="login-form">
         <input
@@ -78,7 +65,7 @@
   </div>
 
   <!-- Main Widget -->
-  <div class="widget" id="main-widget" style="display: none;">
+  <div class="widget expanded" id="main-widget" style="display: none;">
     <!-- Header -->
     <div class="header" id="drag-area">
       <div class="window-controls">
@@ -89,9 +76,10 @@
         <span class="status-indicator" id="header-status"></span>
         <span class="header-title">CallSteer</span>
       </div>
-      <button class="expand-btn" id="expand-btn" title="Compact mode">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 15l-6-6-6 6"/>
+      <button class="mode-btn" id="mode-btn" title="Change size">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 3v18M3 9h18"/>
         </svg>
       </button>
     </div>
@@ -101,13 +89,13 @@
       <!-- Device Settings -->
       <div class="section device-section">
         <div class="device-row">
-          <label class="device-label">Microphone (Your Voice)</label>
+          <label class="device-label">Microphone</label>
           <select id="mic-select" class="device-select">
-            <option value="">Select microphone...</option>
+            <option value="">Select mic...</option>
           </select>
         </div>
         <div class="device-row">
-          <label class="device-label">Speaker Output (Customer Voice)</label>
+          <label class="device-label">Speaker</label>
           <select id="speaker-select" class="device-select">
             <option value="">Select speaker...</option>
           </select>
@@ -118,26 +106,13 @@
       <div class="section toggle-section">
         <div class="toggle-info">
           <span class="toggle-status" id="toggle-status">OFF</span>
-          <span class="toggle-hint" id="toggle-hint">Tap to start listening</span>
+          <span class="toggle-hint" id="toggle-hint">Start listening</span>
         </div>
         <button class="power-btn" id="power-toggle">
-          <!-- Steering Wheel + Power Button Hybrid SVG -->
-          <svg class="power-icon" viewBox="0 0 48 48" width="36" height="36">
-            <!-- Outer wheel -->
-            <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2.5"/>
-            <!-- Power symbol gap at top -->
-            <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2.5"
-                    stroke-dasharray="110 16" stroke-dashoffset="60"/>
-            <!-- Inner hub (power symbol circle) -->
-            <circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
-            <!-- Power line (top spoke) -->
-            <line x1="24" y1="4" x2="24" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-            <!-- Spokes -->
-            <line x1="24" y1="31" x2="24" y2="44" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="7.5" y1="14.5" x2="17" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="40.5" y1="14.5" x2="31" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="7.5" y1="33.5" x2="17" y2="27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="40.5" y1="33.5" x2="31" y2="27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <!-- Simple Power Icon -->
+          <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2v10"/>
+            <path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>
           </svg>
         </button>
       </div>
@@ -154,8 +129,8 @@
       <div class="section nudge-section" id="nudge-section">
         <!-- Empty State -->
         <div class="nudge-empty" id="nudge-empty">
-          <p class="empty-text">No nudges yet</p>
-          <p class="empty-hint">Turn on listening to get AI coaching</p>
+          <p class="empty-text">Ready to navigate</p>
+          <p class="empty-hint">Turn on to get AI coaching</p>
         </div>
 
         <!-- Nudge Card (hidden by default) -->
@@ -167,14 +142,14 @@
           <p class="nudge-text" id="nudge-text"></p>
           <div class="nudge-actions">
             <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
               </svg>
             </button>
             <button class="nudge-btn" id="dismiss-nudge-btn" title="Dismiss">
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M18 6L6 18M6 6l12 12"/>
               </svg>
             </button>
           </div>
@@ -207,7 +182,7 @@
     </div>
   </div>
 
-  <!-- Nudge Popup Container (for compact mode) -->
+  <!-- Nudge Popup Container (for mini mode) -->
   <div id="nudge-popup-container"></div>
 
   <script src="renderer.js"></script>

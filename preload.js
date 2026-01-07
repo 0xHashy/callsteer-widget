@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
   disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
 
+  // Widget mode control
+  setWidgetMode: (mode, dimensions) => ipcRenderer.send('set-widget-mode', mode, dimensions),
+
   // Logout event listener
   onLogoutRequest: (callback) => ipcRenderer.on('logout-request', () => callback())
 });

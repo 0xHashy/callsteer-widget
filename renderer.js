@@ -19,10 +19,18 @@ let isCapturingAudio = false;
 let selectedMicId = null;
 let selectedSpeakerId = null;
 
-// ==================== COMPACT MODE STATE ====================
-let isCompactMode = false;
+// ==================== WIDGET MODE STATE ====================
+// Modes: 'expanded' (full), 'compact' (mini player), 'mini' (just power button)
+let widgetMode = 'expanded';
 let popupDismissTimer = null;
 const POPUP_AUTO_DISMISS_MS = 15000;
+
+// Mode dimensions for window resizing
+const MODE_DIMENSIONS = {
+  expanded: { width: 280, height: 520 },
+  compact: { width: 200, height: 280 },
+  mini: { width: 56, height: 56 }
+};
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -70,7 +78,7 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 async function initializeApp() {
   setupWindowControls();
   setupLoginHandlers();
-  setupExpandButton();
+  setupModeButton();
 
   // Check for stored login
   if (window.electronAPI) {
@@ -133,31 +141,60 @@ function setupWindowControls() {
   });
 }
 
-// ==================== COMPACT MODE ====================
+// ==================== WIDGET MODE ====================
 
-function setupExpandButton() {
-  const expandBtn = document.getElementById('expand-btn');
-  expandBtn?.addEventListener('click', toggleCompactMode);
+function setupModeButton() {
+  const modeBtn = document.getElementById('mode-btn');
+  modeBtn?.addEventListener('click', cycleWidgetMode);
+
+  // In mini mode, double-click on power button to expand
+  const powerToggle = document.getElementById('power-toggle');
+  powerToggle?.addEventListener('dblclick', (e) => {
+    if (widgetMode === 'mini') {
+      e.preventDefault();
+      e.stopPropagation();
+      setWidgetMode('expanded');
+    }
+  });
 }
 
-function toggleCompactMode() {
-  const widget = document.getElementById('main-widget');
-  isCompactMode = !isCompactMode;
+function cycleWidgetMode() {
+  // Cycle through modes: expanded → compact → mini → expanded
+  const modeOrder = ['expanded', 'compact', 'mini'];
+  const currentIndex = modeOrder.indexOf(widgetMode);
+  const nextIndex = (currentIndex + 1) % modeOrder.length;
+  const newMode = modeOrder[nextIndex];
 
-  if (isCompactMode) {
-    widget.classList.add('compact');
-    // Notify main process to resize window
-    if (window.electronAPI?.setCompactMode) {
-      window.electronAPI.setCompactMode(true);
-    }
-  } else {
-    widget.classList.remove('compact');
-    // Clear any popup
+  setWidgetMode(newMode);
+}
+
+function setWidgetMode(mode) {
+  const widget = document.getElementById('main-widget');
+
+  // Remove all mode classes
+  widget.classList.remove('expanded', 'compact', 'mini');
+
+  // Add new mode class
+  widget.classList.add(mode);
+  widgetMode = mode;
+
+  console.log('[Mode] Switched to:', mode);
+
+  // Clear popups when returning to expanded
+  if (mode === 'expanded') {
     clearNudgePopup();
-    if (window.electronAPI?.setCompactMode) {
-      window.electronAPI.setCompactMode(false);
-    }
   }
+
+  // Notify main process to resize window
+  if (window.electronAPI?.setWidgetMode) {
+    const dimensions = MODE_DIMENSIONS[mode];
+    window.electronAPI.setWidgetMode(mode, dimensions);
+  }
+}
+
+// Check if we're in a mode that shows popups
+function isPopupMode() {
+  return widgetMode === 'compact' || widgetMode === 'mini';
 }
 
 // ==================== DEVICE SELECTION ====================
@@ -606,8 +643,8 @@ function processNudges(newNudges) {
     // Show the newest nudge
     currentNudge = nudges[0];
 
-    if (isCompactMode) {
-      // Show as popup
+    if (isPopupMode()) {
+      // Show as popup in compact/mini mode
       showNudgePopup(currentNudge);
     } else {
       // Show in widget
