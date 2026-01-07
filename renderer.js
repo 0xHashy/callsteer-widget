@@ -65,7 +65,8 @@ let currentNudge = null;
 let nudges = [];
 let seenNudgeIds = new Set();
 let pollingInterval = null;
-let repId = null; // Unique device-based rep identifier
+let repId = null; // Unique rep identifier (name + device hash)
+let repName = null; // Rep's display name for shift-based isolation
 
 // WebSocket state
 let nudgeSocket = null;
@@ -80,9 +81,8 @@ async function initializeApp() {
   setupWindowControls();
   setupLoginHandlers();
 
-  // Generate or load unique rep ID for this device
-  repId = getOrCreateRepId();
-  console.log('[Auth] Rep ID:', repId);
+  // Load saved rep name if exists (for returning users)
+  repName = localStorage.getItem('callsteer_rep_name') || null;
 
   // Check for stored login
   if (window.electronAPI) {
@@ -90,7 +90,11 @@ async function initializeApp() {
     clientInfo = await window.electronAPI.getClientInfo();
   }
 
-  if (clientCode && clientInfo) {
+  // Only auto-login if we have both client code AND rep name
+  if (clientCode && clientInfo && repName) {
+    // Generate rep ID based on name
+    repId = generateRepId(repName);
+    console.log('[Auth] Rep ID:', repId, 'Name:', repName);
     showMainWidget();
   } else {
     showLoginScreen();
@@ -105,26 +109,49 @@ async function initializeApp() {
 // ==================== REP ID MANAGEMENT ====================
 
 /**
- * Get or create a unique rep ID for this device
- * This ensures each installation is treated as a unique rep
+ * Get or create a device ID (stays constant per installation)
+ * This is combined with rep name to create the full rep_id
  */
-function getOrCreateRepId() {
+function getOrCreateDeviceId() {
   try {
-    let storedRepId = localStorage.getItem('callsteer_rep_id');
+    let deviceId = localStorage.getItem('callsteer_device_id');
 
-    if (!storedRepId) {
-      // Generate a unique ID: timestamp + random string
-      storedRepId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      localStorage.setItem('callsteer_rep_id', storedRepId);
-      console.log('[RepID] Generated new rep ID:', storedRepId);
+    if (!deviceId) {
+      // Generate a unique device ID: timestamp + random string
+      deviceId = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      localStorage.setItem('callsteer_device_id', deviceId);
+      console.log('[Device] Generated new device ID:', deviceId);
     }
 
-    return storedRepId;
+    return deviceId;
   } catch (e) {
-    // Fallback if localStorage fails
-    console.error('[RepID] Failed to get/create rep ID:', e);
-    return `rep_temp_${Date.now()}`;
+    console.error('[Device] Failed to get/create device ID:', e);
+    return `dev_temp_${Date.now()}`;
   }
+}
+
+/**
+ * Generate a rep ID from the rep's name
+ * Format: normalized_name_devicehash
+ * This allows:
+ * - Same person on different computers → different rep_ids (that's ok, data is server-side)
+ * - Different people on same computer → different rep_ids (name differentiates)
+ */
+function generateRepId(name) {
+  if (!name) return null;
+
+  // Normalize name: lowercase, remove special chars, replace spaces with underscores
+  const normalizedName = name.toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '_')
+    .substring(0, 20); // Limit length
+
+  // Get device ID for additional uniqueness
+  const deviceId = getOrCreateDeviceId();
+  const deviceHash = deviceId.substring(deviceId.length - 6); // Last 6 chars
+
+  return `${normalizedName}_${deviceHash}`;
 }
 
 // ==================== SCREEN NAVIGATION ====================
@@ -195,13 +222,17 @@ async function handleSignOut() {
     await window.electronAPI.clearClientCode();
   }
 
-  // Reset state
+  // Reset state - clear rep name too since sign out means different person
   clientCode = null;
   clientInfo = null;
+  repId = null;
+  repName = null;
+  localStorage.removeItem('callsteer_rep_name');
 
   // Show login screen
   document.getElementById('main-widget').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('rep-name-input').value = '';
   document.getElementById('client-code-input').value = '';
   document.getElementById('login-error').textContent = '';
 
@@ -309,12 +340,21 @@ async function populateDeviceDropdowns() {
 function setupLoginHandlers() {
   const connectBtn = document.getElementById('connect-btn');
   const codeInput = document.getElementById('client-code-input');
+  const nameInput = document.getElementById('rep-name-input');
   const signupLink = document.getElementById('signup-link');
 
   connectBtn?.addEventListener('click', handleLogin);
 
+  // Auto-uppercase and filter company code
   codeInput?.addEventListener('input', (e) => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  // Enter key handling for both inputs
+  nameInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      codeInput?.focus(); // Move to code input
+    }
   });
 
   codeInput?.addEventListener('keypress', (e) => {
@@ -325,17 +365,33 @@ function setupLoginHandlers() {
     e.preventDefault();
     window.electronAPI?.openExternal('https://callsteer.com');
   });
+
+  // Pre-fill name if saved (for convenience)
+  if (nameInput && repName) {
+    nameInput.value = repName;
+  }
 }
 
 async function handleLogin() {
+  const nameInput = document.getElementById('rep-name-input');
   const codeInput = document.getElementById('client-code-input');
   const errorEl = document.getElementById('login-error');
   const connectBtn = document.getElementById('connect-btn');
 
+  const name = nameInput?.value.trim() || '';
   const code = codeInput.value.trim().toUpperCase();
 
+  // Validate name
+  if (!name || name.length < 2) {
+    showLoginError('Enter your name');
+    nameInput?.focus();
+    return;
+  }
+
+  // Validate code
   if (!code || code.length !== 6) {
     showLoginError('Enter a 6-character code');
+    codeInput?.focus();
     return;
   }
 
@@ -351,6 +407,12 @@ async function handleLogin() {
     }
 
     const data = await response.json();
+
+    // Save rep name and generate rep ID
+    repName = name;
+    localStorage.setItem('callsteer_rep_name', repName);
+    repId = generateRepId(repName);
+    console.log('[Auth] Rep logged in:', repName, 'ID:', repId);
 
     clientCode = code;
     clientInfo = {
@@ -386,12 +448,15 @@ async function handleLogout() {
     await window.electronAPI.clearClientCode();
   }
 
+  // Clear session state but KEEP rep name for convenience
   clientCode = null;
   clientInfo = null;
+  repId = null;
   seenNudgeIds = new Set();
   nudges = [];
   currentNudge = null;
 
+  // Clear inputs (name stays pre-filled from localStorage)
   document.getElementById('client-code-input').value = '';
   document.getElementById('login-error').textContent = '';
 
@@ -1168,12 +1233,21 @@ function playSuccessSound() {
 }
 
 /**
- * Save rebuttal stats to localStorage
+ * Get storage key for rebuttal stats (per-rep isolation)
+ */
+function getRebuttalStatsKey() {
+  // Use repId for per-rep stats isolation on shared computers
+  return repId ? `callsteer_rebuttal_stats_${repId}` : 'callsteer_rebuttal_stats';
+}
+
+/**
+ * Save rebuttal stats to localStorage (per-rep)
  */
 function saveRebuttalStats() {
   try {
     const today = new Date().toDateString();
-    const stored = JSON.parse(localStorage.getItem('callsteer_rebuttal_stats') || '{}');
+    const storageKey = getRebuttalStatsKey();
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
     // Reset daily count if it's a new day
     if (stored.date !== today) {
@@ -1187,19 +1261,20 @@ function saveRebuttalStats() {
     stored.currentStreak = currentStreak;
     stored.bestStreak = Math.max(stored.bestStreak || 0, bestStreak);
 
-    localStorage.setItem('callsteer_rebuttal_stats', JSON.stringify(stored));
+    localStorage.setItem(storageKey, JSON.stringify(stored));
   } catch (e) {
     console.error('[Rebuttal] Failed to save stats:', e);
   }
 }
 
 /**
- * Load rebuttal stats from localStorage
+ * Load rebuttal stats from localStorage (per-rep)
  */
 function loadRebuttalStats() {
   try {
     const today = new Date().toDateString();
-    const stored = JSON.parse(localStorage.getItem('callsteer_rebuttal_stats') || '{}');
+    const storageKey = getRebuttalStatsKey();
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
     // Reset daily count if it's a new day
     if (stored.date === today) {
@@ -1212,7 +1287,7 @@ function loadRebuttalStats() {
     currentStreak = stored.currentStreak || 0;
     bestStreak = stored.bestStreak || 0;
 
-    console.log('[Rebuttal] Loaded stats:', {
+    console.log('[Rebuttal] Loaded stats for', repId, ':', {
       today: rebuttalsUsedToday,
       total: rebuttalsUsedTotal,
       streak: currentStreak,
