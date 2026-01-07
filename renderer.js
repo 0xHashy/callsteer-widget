@@ -961,6 +961,17 @@ function updateStatsTab() {
     ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
     : 0;
 
+  // Update profile header
+  const repNameEl = document.getElementById('stats-rep-name');
+  const companyNameEl = document.getElementById('stats-company-name');
+
+  if (repNameEl && repName) {
+    repNameEl.textContent = repName;
+  }
+  if (companyNameEl && clientInfo?.company_name) {
+    companyNameEl.textContent = clientInfo.company_name;
+  }
+
   // Hero adoption rate
   const heroValue = document.getElementById('stats-adoption-big');
   if (heroValue) {
@@ -996,6 +1007,9 @@ function updateStatsTab() {
 
   // Update motivation message
   updateMotivationMessage(adoptionRate, currentStreak, rebuttalsUsedToday);
+
+  // Fetch leaderboard data
+  fetchLeaderboard();
 }
 
 function updateMotivationMessage(adoptionRate, streak, used) {
@@ -1030,6 +1044,107 @@ function updateMotivationMessage(adoptionRate, streak, used) {
 
   motivationEl.querySelector('.motivation-emoji').textContent = emoji;
   motivationEl.querySelector('.motivation-text').textContent = message;
+}
+
+// ==================== LEADERBOARD ====================
+
+let leaderboardCache = null;
+let lastLeaderboardFetch = 0;
+const LEADERBOARD_CACHE_MS = 30000; // Cache for 30 seconds
+
+async function fetchLeaderboard() {
+  if (!clientCode) return;
+
+  // Use cache if recent
+  const now = Date.now();
+  if (leaderboardCache && (now - lastLeaderboardFetch) < LEADERBOARD_CACHE_MS) {
+    renderLeaderboard(leaderboardCache);
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${clientCode}/leaderboard?limit=5`);
+
+    if (!response.ok) {
+      console.error('[Leaderboard] Failed to fetch:', response.status);
+      return;
+    }
+
+    const data = await response.json();
+    leaderboardCache = data;
+    lastLeaderboardFetch = now;
+
+    renderLeaderboard(data);
+
+  } catch (error) {
+    console.error('[Leaderboard] Error:', error);
+  }
+}
+
+function renderLeaderboard(data) {
+  const listEl = document.getElementById('leaderboard-list');
+  const rankBadge = document.getElementById('stats-rank-badge');
+
+  if (!listEl) return;
+
+  const leaderboard = data.leaderboard || [];
+
+  if (leaderboard.length === 0) {
+    listEl.innerHTML = '<div class="leaderboard-empty">No team data yet</div>';
+    return;
+  }
+
+  // Find current user's rank
+  const myEntry = leaderboard.find(entry => entry.rep_id === repId);
+  const myRank = myEntry?.rank || null;
+
+  // Update rank badge
+  if (rankBadge) {
+    const rankNum = rankBadge.querySelector('.rank-number');
+    if (myRank) {
+      rankNum.textContent = `#${myRank}`;
+      if (myRank <= 3) {
+        rankBadge.classList.add('top-3');
+      } else {
+        rankBadge.classList.remove('top-3');
+      }
+    } else {
+      rankNum.textContent = '#-';
+      rankBadge.classList.remove('top-3');
+    }
+  }
+
+  // Render leaderboard items
+  listEl.innerHTML = leaderboard.map(entry => {
+    const isMe = entry.rep_id === repId;
+    const rankDisplay = entry.rank <= 3 ? getMedalEmoji(entry.rank) : `${entry.rank}`;
+
+    return `
+      <div class="leaderboard-item ${isMe ? 'is-me' : ''}">
+        <span class="leaderboard-rank">${rankDisplay}</span>
+        <span class="leaderboard-name">${escapeHtml(entry.display_name)}${isMe ? ' (You)' : ''}</span>
+        <div class="leaderboard-stats">
+          <span class="leaderboard-adoption">${entry.adoption_rate}%</span>
+          <span class="leaderboard-used">${entry.rebuttals_used_today}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getMedalEmoji(rank) {
+  switch (rank) {
+    case 1: return '🥇';
+    case 2: return '🥈';
+    case 3: return '🥉';
+    default: return `${rank}`;
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ==================== CONNECTION STATUS ====================

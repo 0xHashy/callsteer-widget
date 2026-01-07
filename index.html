@@ -207,6 +207,17 @@
 
       <!-- Stats Tab (Gamification) -->
       <div class="tab-content" id="tab-stats">
+        <!-- Profile Header -->
+        <div class="stats-profile">
+          <div class="profile-info">
+            <span class="profile-name" id="stats-rep-name">Rep Name</span>
+            <span class="profile-company" id="stats-company-name">Company</span>
+          </div>
+          <div class="profile-rank" id="stats-rank-badge">
+            <span class="rank-number">#-</span>
+          </div>
+        </div>
+
         <!-- Today's Performance -->
         <div class="stats-hero">
           <div class="stats-hero-value" id="stats-adoption-big">0%</div>
@@ -265,9 +276,22 @@
           </div>
         </div>
 
+        <!-- Leaderboard -->
+        <div class="leaderboard-section">
+          <div class="leaderboard-header">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 21h8m-4-4v4m-5-8l5-10 5 10M4 13h16"/>
+            </svg>
+            <span>Team Ranking</span>
+          </div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <div class="leaderboard-empty">Loading rankings...</div>
+          </div>
+        </div>
+
         <!-- Motivation Message -->
         <div class="stats-motivation" id="stats-motivation">
-          <span class="motivation-emoji">🎯</span>
+          <span class="motivation-emoji"></span>
           <span class="motivation-text">Start using rebuttals to build your streak!</span>
         </div>
       </div>
