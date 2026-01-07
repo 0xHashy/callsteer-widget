@@ -27,6 +27,7 @@ const POPUP_AUTO_DISMISS_MS = 15000;
 let currentSuggestionText = '';      // The current nudge suggestion to match against
 let rebuttalsUsedToday = 0;          // Count of rebuttals used today
 let rebuttalsUsedTotal = 0;          // Total rebuttals used in session
+let nudgesReceivedToday = 0;         // Count of nudges received today (persisted)
 let currentStreak = 0;               // Current consecutive rebuttals used
 let bestStreak = 0;                  // Best streak ever
 let lastRebuttalWasUsed = false;     // Track if last nudge was converted
@@ -497,11 +498,15 @@ async function toggleListening() {
     if (toggleHint) toggleHint.textContent = 'Tap to start listening';
     if (listeningAnimation) listeningAnimation.style.display = 'none';
 
+    // Update empty state text
+    updateNudgeEmptyState();
+
     updateConnectionStatus('connected', 'Connected');
     console.log('[Toggle] Now OFF');
   } else {
     // TURN ON
     console.log('[Toggle] Turning ON...');
+    isListening = true; // Set this first so updateNudgeEmptyState works correctly
 
     // Update UI to ON state first
     powerToggle?.classList.add('active');
@@ -511,6 +516,9 @@ async function toggleListening() {
     }
     if (toggleHint) toggleHint.textContent = 'Starting audio capture...';
     if (listeningAnimation) listeningAnimation.style.display = 'flex';
+
+    // Update empty state text
+    updateNudgeEmptyState();
 
     // Connect to WebSocket for real-time nudges (from Dialpad)
     connectToNudgeWebSocket(clientCode);
@@ -524,8 +532,23 @@ async function toggleListening() {
       if (toggleHint) toggleHint.textContent = 'WebSocket only (audio failed)';
     }
 
-    isListening = true;
     console.log('[Toggle] Now ON');
+  }
+}
+
+/**
+ * Update the nudge empty state text based on listening status
+ */
+function updateNudgeEmptyState() {
+  const emptyText = document.querySelector('.nudge-empty .empty-text');
+  const emptyHint = document.querySelector('.nudge-empty .empty-hint');
+
+  if (isListening) {
+    if (emptyText) emptyText.textContent = 'Listening for objections...';
+    if (emptyHint) emptyHint.textContent = 'Rebuttals will appear here';
+  } else {
+    if (emptyText) emptyText.textContent = 'Ready to navigate';
+    if (emptyHint) emptyHint.textContent = 'Turn on to get AI coaching';
   }
 }
 
@@ -709,16 +732,22 @@ async function fetchNudges() {
 
 function processNudges(newNudges) {
   let hasNew = false;
+  let newCount = 0;
 
   newNudges.forEach(nudge => {
     if (nudge.nudge_id && !seenNudgeIds.has(nudge.nudge_id)) {
       seenNudgeIds.add(nudge.nudge_id);
       nudges.unshift(nudge);
       hasNew = true;
+      newCount++;
     }
   });
 
   if (hasNew) {
+    // Increment nudges received count and persist
+    nudgesReceivedToday += newCount;
+    saveRebuttalStats();
+
     // Show the newest nudge
     currentNudge = nudges[0];
     displayNudge(currentNudge);
@@ -935,11 +964,9 @@ function setupStatsTabs() {
 // ==================== STATS ====================
 
 function updateStats() {
-  const todayNudges = nudges.filter(n => isToday(n.timestamp)).length;
-
   // Calculate adoption rate: rebuttals used / nudges received today
-  const adoptionRate = todayNudges > 0
-    ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
+  const adoptionRate = nudgesReceivedToday > 0
+    ? Math.min(100, Math.round((rebuttalsUsedToday / nudgesReceivedToday) * 100))
     : 0;
 
   // Update Live tab quick stats
@@ -949,16 +976,15 @@ function updateStats() {
 
   if (rebuttalsEl) rebuttalsEl.textContent = rebuttalsUsedToday;
   if (adoptionEl) adoptionEl.textContent = `${adoptionRate}%`;
-  if (nudgesEl) nudgesEl.textContent = todayNudges;
+  if (nudgesEl) nudgesEl.textContent = nudgesReceivedToday;
 
   // Also update Stats tab if visible
   updateStatsTab();
 }
 
 function updateStatsTab() {
-  const todayNudges = nudges.filter(n => isToday(n.timestamp)).length;
-  const adoptionRate = todayNudges > 0
-    ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
+  const adoptionRate = nudgesReceivedToday > 0
+    ? Math.min(100, Math.round((rebuttalsUsedToday / nudgesReceivedToday) * 100))
     : 0;
 
   // Update profile header
@@ -991,7 +1017,7 @@ function updateStatsTab() {
   const bestEl = document.getElementById('stats-best-streak');
 
   if (usedEl) usedEl.textContent = rebuttalsUsedToday;
-  if (receivedEl) receivedEl.textContent = todayNudges;
+  if (receivedEl) receivedEl.textContent = nudgesReceivedToday;
   if (streakEl) streakEl.textContent = currentStreak;
   if (bestEl) bestEl.textContent = bestStreak;
 
@@ -1364,14 +1390,16 @@ function saveRebuttalStats() {
     const storageKey = getRebuttalStatsKey();
     const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-    // Reset daily count if it's a new day
+    // Reset daily counts if it's a new day
     if (stored.date !== today) {
       stored.date = today;
       stored.todayCount = 0;
+      stored.nudgesToday = 0;
       // Don't reset streak on new day - keep it going
     }
 
     stored.todayCount = rebuttalsUsedToday;
+    stored.nudgesToday = nudgesReceivedToday;
     stored.totalCount = rebuttalsUsedTotal;
     stored.currentStreak = currentStreak;
     stored.bestStreak = Math.max(stored.bestStreak || 0, bestStreak);
@@ -1391,25 +1419,28 @@ function loadRebuttalStats() {
     const storageKey = getRebuttalStatsKey();
     const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-    // Reset daily count if it's a new day
+    // Reset daily counts if it's a new day
     if (stored.date === today) {
       rebuttalsUsedToday = stored.todayCount || 0;
+      nudgesReceivedToday = stored.nudgesToday || 0;
     } else {
       rebuttalsUsedToday = 0;
+      nudgesReceivedToday = 0;
     }
 
     rebuttalsUsedTotal = stored.totalCount || 0;
     currentStreak = stored.currentStreak || 0;
     bestStreak = stored.bestStreak || 0;
 
-    console.log('[Rebuttal] Loaded stats for', repId, ':', {
-      today: rebuttalsUsedToday,
+    console.log('[Stats] Loaded stats for', repId, ':', {
+      rebuttalsToday: rebuttalsUsedToday,
+      nudgesToday: nudgesReceivedToday,
       total: rebuttalsUsedTotal,
       streak: currentStreak,
       best: bestStreak
     });
   } catch (e) {
-    console.error('[Rebuttal] Failed to load stats:', e);
+    console.error('[Stats] Failed to load stats:', e);
   }
 }
 
