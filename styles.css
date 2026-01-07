@@ -50,7 +50,8 @@ button, select {
 /* ==================== MAIN WIDGET CONTAINER ==================== */
 
 .widget {
-  width: 280px;
+  width: 100%;
+  height: 100%;
   background: var(--glass-bg);
   border-radius: 16px;
   display: flex;
@@ -61,184 +62,169 @@ button, select {
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--glass-border);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  container-type: size;
+  container-name: widget;
 }
 
-/* Expanded state */
-.widget.expanded {
-  width: 280px;
+/* ==================== RESPONSIVE SCALING ==================== */
+
+/* Small widget (under 250px wide) - hide non-essential elements */
+@container widget (max-width: 250px) {
+  .device-section {
+    display: none !important;
+  }
+
+  .stats-section {
+    display: none !important;
+  }
+
+  .header-title {
+    font-size: 10px;
+  }
+
+  .toggle-status {
+    font-size: 14px;
+  }
+
+  .toggle-hint {
+    font-size: 9px;
+  }
+
+  .power-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .power-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nudge-card {
+    padding: 8px;
+  }
+
+  .nudge-type {
+    font-size: 7px;
+    padding: 2px 5px;
+  }
+
+  .nudge-echo {
+    font-size: 9px;
+  }
+
+  .nudge-suggestion {
+    font-size: 10px;
+  }
+
+  .nudge-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .nudge-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .footer {
+    padding: 5px 10px;
+  }
+
+  .footer-text {
+    font-size: 8px;
+  }
 }
 
-/* Compact mode - Spotify-like mini player */
-.widget.compact {
-  width: 200px;
-  border-radius: 12px;
+/* Very small widget (under 220px wide) - minimal UI */
+@container widget (max-width: 220px) {
+  .header {
+    padding: 6px 10px;
+  }
+
+  .content {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .toggle-section {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .listening-indicator {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+
+  .wave {
+    width: 2px;
+    height: 8px;
+  }
+
+  .listening-text {
+    font-size: 9px;
+  }
+
+  .nudge-section {
+    min-height: 50px;
+  }
+
+  .nudge-header {
+    margin-bottom: 4px;
+  }
+
+  .nudge-text {
+    margin-bottom: 6px;
+  }
 }
 
-.widget.compact .header {
-  padding: 8px 12px;
+/* Short widget (under 300px tall) - compact vertical spacing */
+@container widget (max-height: 300px) {
+  .device-section {
+    display: none !important;
+  }
+
+  .stats-section {
+    display: none !important;
+  }
+
+  .content {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .nudge-section {
+    min-height: auto;
+    flex: 1;
+  }
+
+  .listening-indicator {
+    padding: 4px 8px;
+  }
 }
 
-.widget.compact .header-title {
-  font-size: 11px;
-}
+/* Very short widget (under 250px tall) */
+@container widget (max-height: 250px) {
+  .header {
+    padding: 6px 10px;
+  }
 
-.widget.compact .content {
-  padding: 8px 12px 12px;
-  gap: 8px;
-}
+  .footer {
+    padding: 4px 10px;
+  }
 
-.widget.compact .device-section {
-  display: none;
-}
+  .toggle-info {
+    gap: 1px;
+  }
 
-.widget.compact .toggle-section {
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
+  .toggle-status {
+    font-size: 13px;
+  }
 
-.widget.compact .toggle-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.widget.compact .toggle-status {
-  font-size: 13px;
-}
-
-.widget.compact .toggle-hint {
-  font-size: 9px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.widget.compact .power-btn {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-}
-
-.widget.compact .power-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.widget.compact .listening-indicator {
-  padding: 6px 10px;
-  gap: 6px;
-}
-
-.widget.compact .listening-text {
-  font-size: 10px;
-}
-
-.widget.compact .wave {
-  width: 2px;
-  height: 8px;
-}
-
-.widget.compact .nudge-section {
-  min-height: 60px;
-}
-
-.widget.compact .nudge-card {
-  padding: 10px;
-}
-
-.widget.compact .nudge-type {
-  font-size: 8px;
-  padding: 2px 6px;
-}
-
-.widget.compact .nudge-echo {
-  font-size: 10px;
-  margin-bottom: 4px;
-  padding-left: 8px;
-}
-
-.widget.compact .nudge-suggestion {
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.widget.compact .nudge-actions {
-  gap: 4px;
-}
-
-.widget.compact .nudge-btn {
-  width: 26px;
-  height: 26px;
-}
-
-.widget.compact .nudge-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
-.widget.compact .stats-section {
-  display: none;
-}
-
-.widget.compact .footer {
-  padding: 6px 12px;
-}
-
-.widget.compact .footer-text {
-  font-size: 9px;
-}
-
-/* Mini mode - just the toggle (like a floating action button) */
-.widget.mini {
-  width: 56px;
-  height: 56px;
-  border-radius: 28px;
-  padding: 0;
-  -webkit-app-region: drag;
-  cursor: move;
-}
-
-.widget.mini .header,
-.widget.mini .footer,
-.widget.mini .device-section,
-.widget.mini .nudge-section,
-.widget.mini .stats-section,
-.widget.mini .listening-indicator,
-.widget.mini .toggle-info {
-  display: none !important;
-}
-
-.widget.mini .content {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-}
-
-.widget.mini .toggle-section {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: transparent;
-  border: none;
-}
-
-.widget.mini .power-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  -webkit-app-region: no-drag;
-}
-
-.widget.mini .power-btn.active {
-  background: rgba(0, 199, 190, 0.15);
+  .toggle-hint {
+    font-size: 8px;
+  }
 }
 
 /* ==================== HEADER ==================== */
@@ -306,26 +292,6 @@ button, select {
   font-weight: 600;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
-}
-
-/* Mode toggle button */
-.mode-btn {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-  -webkit-app-region: no-drag;
-}
-
-.mode-btn:hover {
-  background: var(--glass-bg-light);
-  color: var(--text-secondary);
 }
 
 /* ==================== CONTENT AREA ==================== */

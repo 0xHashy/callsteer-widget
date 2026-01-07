@@ -104,10 +104,10 @@ function createWindow() {
     frame: false,
     alwaysOnTop: true,
     resizable: true,
-    minWidth: 320,
-    minHeight: 480,
-    maxWidth: 320,
-    maxHeight: 700,
+    minWidth: 200,
+    minHeight: 200,
+    maxWidth: 400,
+    maxHeight: 800,
     transparent: true,
     backgroundColor: '#00000000', // Fully transparent for glassmorphism
     hasShadow: true,
@@ -313,47 +313,6 @@ ipcMain.on('close-window', () => {
   mainWindow.hide();  // Close button hides to tray
 });
 
-// Widget mode handler - resize window based on mode
-ipcMain.on('set-widget-mode', (event, mode, dimensions) => {
-  if (!mainWindow || !dimensions) return;
-
-  console.log('[Main] Setting widget mode:', mode, dimensions);
-
-  const currentBounds = mainWindow.getBounds();
-
-  // Calculate new position to keep widget anchored to top-right
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth } = primaryDisplay.workAreaSize;
-
-  // Keep right edge position constant
-  const newX = screenWidth - dimensions.width - 20;
-
-  // Update window constraints based on mode
-  if (mode === 'mini') {
-    // Mini mode: fixed circular size
-    mainWindow.setMinimumSize(56, 56);
-    mainWindow.setMaximumSize(56, 56);
-    mainWindow.setResizable(false);
-  } else if (mode === 'compact') {
-    // Compact mode: small fixed size
-    mainWindow.setMinimumSize(200, 200);
-    mainWindow.setMaximumSize(200, 400);
-    mainWindow.setResizable(false);
-  } else {
-    // Expanded mode: normal constraints
-    mainWindow.setMinimumSize(280, 480);
-    mainWindow.setMaximumSize(320, 700);
-    mainWindow.setResizable(true);
-  }
-
-  // Animate the resize
-  mainWindow.setBounds({
-    x: newX,
-    y: currentBounds.y,
-    width: dimensions.width,
-    height: dimensions.height
-  }, true); // true = animate
-});
 
 // Clipboard handler
 ipcMain.handle('copy-to-clipboard', (event, text) => {
