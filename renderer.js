@@ -65,6 +65,7 @@ let currentNudge = null;
 let nudges = [];
 let seenNudgeIds = new Set();
 let pollingInterval = null;
+let repId = null; // Unique device-based rep identifier
 
 // WebSocket state
 let nudgeSocket = null;
@@ -78,6 +79,10 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 async function initializeApp() {
   setupWindowControls();
   setupLoginHandlers();
+
+  // Generate or load unique rep ID for this device
+  repId = getOrCreateRepId();
+  console.log('[Auth] Rep ID:', repId);
 
   // Check for stored login
   if (window.electronAPI) {
@@ -94,6 +99,31 @@ async function initializeApp() {
   // Listen for logout from tray
   if (window.electronAPI?.onLogoutRequest) {
     window.electronAPI.onLogoutRequest(handleLogout);
+  }
+}
+
+// ==================== REP ID MANAGEMENT ====================
+
+/**
+ * Get or create a unique rep ID for this device
+ * This ensures each installation is treated as a unique rep
+ */
+function getOrCreateRepId() {
+  try {
+    let storedRepId = localStorage.getItem('callsteer_rep_id');
+
+    if (!storedRepId) {
+      // Generate a unique ID: timestamp + random string
+      storedRepId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      localStorage.setItem('callsteer_rep_id', storedRepId);
+      console.log('[RepID] Generated new rep ID:', storedRepId);
+    }
+
+    return storedRepId;
+  } catch (e) {
+    // Fallback if localStorage fails
+    console.error('[RepID] Failed to get/create rep ID:', e);
+    return `rep_temp_${Date.now()}`;
   }
 }
 
@@ -467,7 +497,8 @@ function connectToNudgeWebSocket(code) {
     return;
   }
 
-  const wsUrl = `${WS_BASE_URL}/ws/nudges/${code}`;
+  // Include rep_id in WebSocket URL for per-device filtering
+  const wsUrl = `${WS_BASE_URL}/ws/nudges/${code}?rep_id=${encodeURIComponent(repId)}`;
   console.log('[WebSocket] Connecting to:', wsUrl);
 
   try {
@@ -595,7 +626,8 @@ async function fetchNudges() {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/nudges?client_code=${clientCode}`);
+    // Include rep_id for per-device filtering
+    const response = await fetch(`${API_BASE_URL}/api/nudges?client_code=${clientCode}&rep_id=${encodeURIComponent(repId)}`);
 
     if (!response.ok) throw new Error('Failed to fetch');
 
@@ -1649,6 +1681,7 @@ async function sendTranscriptToBackend(transcript, speaker) {
         transcript: transcript,
         speaker: speaker,
         call_id: callId,
+        rep_id: repId, // Include unique rep ID for per-device isolation
         source: 'electron_widget',
         is_final: true
       })
