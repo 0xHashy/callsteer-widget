@@ -1340,6 +1340,20 @@ button, select {
   opacity: 0.8;
 }
 
+.leaderboard-column-labels {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.leaderboard-column-labels .col-label {
+  font-size: 8px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  min-width: 32px;
+  text-align: right;
+}
+
 .leaderboard-list {
   max-height: 140px;
   overflow-y: auto;
@@ -1410,20 +1424,28 @@ button, select {
 .leaderboard-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.leaderboard-adoption {
+.leaderboard-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.leaderboard-stat .stat-value {
   font-size: 11px;
   font-weight: 600;
-  color: var(--success);
-  min-width: 32px;
   text-align: right;
 }
 
-.leaderboard-used {
-  font-size: 9px;
-  color: var(--text-muted);
-  min-width: 24px;
-  text-align: right;
+.leaderboard-stat .stat-value.adoption {
+  color: var(--success);
+  min-width: 32px;
+}
+
+.leaderboard-stat .stat-value.used {
+  color: var(--text-secondary);
+  font-size: 10px;
+  min-width: 30px;
 }

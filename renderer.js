@@ -1194,8 +1194,12 @@ function renderLeaderboard(data) {
         <span class="leaderboard-rank">${rankDisplay}</span>
         <span class="leaderboard-name">${escapeHtml(entry.display_name)}${isMe ? ' (You)' : ''}</span>
         <div class="leaderboard-stats">
-          <span class="leaderboard-adoption">${entry.adoption_rate}%</span>
-          <span class="leaderboard-used">${entry.rebuttals_used_today}</span>
+          <span class="leaderboard-stat" title="Adoption Rate">
+            <span class="stat-value adoption">${entry.adoption_rate}%</span>
+          </span>
+          <span class="leaderboard-stat" title="Rebuttals Used / Nudges Received Today">
+            <span class="stat-value used">${entry.rebuttals_used_today}/${entry.nudges_received_today}</span>
+          </span>
         </div>
       </div>
     `;
