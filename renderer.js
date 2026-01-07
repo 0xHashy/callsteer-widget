@@ -169,10 +169,21 @@ function showMainWidget() {
   document.getElementById('main-widget').style.display = 'flex';
 
   // Clear old nudges from previous sessions - start fresh
+  // Live nudges only - they disappear when widget closes
   nudges = [];
   seenNudgeIds = new Set();
   currentNudge = null;
+  currentSuggestionText = ''; // Clear any tracked suggestion
+
+  // Reset listening state on widget open
+  isListening = false;
+
+  // Show empty state (not old nudge)
   displayNudge(null);
+  updateNudgeEmptyState();
+
+  // Reset toggle UI to OFF state
+  updateToggleUI(false);
 
   setupToggle();
   setupNudgeActions();
