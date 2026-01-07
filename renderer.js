@@ -31,7 +31,7 @@ let nudgesReceivedToday = 0;         // Count of nudges received today (persiste
 let currentStreak = 0;               // Current consecutive rebuttals used
 let bestStreak = 0;                  // Best streak ever
 let lastRebuttalWasUsed = false;     // Track if last nudge was converted
-const REBUTTAL_MATCH_THRESHOLD = 0.5; // 50% word match = rebuttal used
+const REBUTTAL_MATCH_THRESHOLD = 0.4; // 40% word match = rebuttal used (allows paraphrasing)
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
