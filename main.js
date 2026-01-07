@@ -153,8 +153,8 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // DevTools enabled for debugging
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // DevTools - only enable in development (uncomment line below when debugging)
+  // mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   // Make window draggable
   mainWindow.setMenu(null);

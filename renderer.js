@@ -27,6 +27,9 @@ const POPUP_AUTO_DISMISS_MS = 15000;
 let currentSuggestionText = '';      // The current nudge suggestion to match against
 let rebuttalsUsedToday = 0;          // Count of rebuttals used today
 let rebuttalsUsedTotal = 0;          // Total rebuttals used in session
+let currentStreak = 0;               // Current consecutive rebuttals used
+let bestStreak = 0;                  // Best streak ever
+let lastRebuttalWasUsed = false;     // Track if last nudge was converted
 const REBUTTAL_MATCH_THRESHOLD = 0.5; // 50% word match = rebuttal used
 
 // ==================== GLOBAL ERROR HANDLERS ====================
@@ -107,8 +110,15 @@ function showMainWidget() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-widget').style.display = 'flex';
 
+  // Clear old nudges from previous sessions - start fresh
+  nudges = [];
+  seenNudgeIds = new Set();
+  currentNudge = null;
+  displayNudge(null);
+
   setupToggle();
   setupNudgeActions();
+  setupStatsTabs();
   startPolling();
   updateConnectionStatus('connected', 'Connected');
 
@@ -766,6 +776,17 @@ function copyCurrentNudge() {
 function dismissCurrentNudge() {
   const nudgeCard = document.getElementById('nudge-card');
 
+  // If manually dismissed (not from rebuttal match), break streak
+  if (currentSuggestionText && !lastRebuttalWasUsed) {
+    // Nudge was dismissed without using rebuttal - break streak
+    currentStreak = 0;
+    saveRebuttalStats();
+    updateStats();
+  }
+
+  // Reset flag for next nudge
+  lastRebuttalWasUsed = false;
+
   // Fade out animation
   nudgeCard.style.opacity = '0';
   nudgeCard.style.transform = 'translateY(-10px)';
@@ -787,6 +808,33 @@ function dismissCurrentNudge() {
   }, 200);
 }
 
+// ==================== TABS ====================
+
+function setupStatsTabs() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+
+      // Update button states
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`tab-${tabId}`)?.classList.add('active');
+
+      // Update stats tab when switching to it
+      if (tabId === 'stats') {
+        updateStatsTab();
+      }
+    });
+  });
+}
+
 // ==================== STATS ====================
 
 function updateStats() {
@@ -797,7 +845,7 @@ function updateStats() {
     ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
     : 0;
 
-  // Update UI
+  // Update Live tab quick stats
   const rebuttalsEl = document.getElementById('stat-rebuttals');
   const adoptionEl = document.getElementById('stat-adoption');
   const nudgesEl = document.getElementById('stat-nudges');
@@ -805,6 +853,86 @@ function updateStats() {
   if (rebuttalsEl) rebuttalsEl.textContent = rebuttalsUsedToday;
   if (adoptionEl) adoptionEl.textContent = `${adoptionRate}%`;
   if (nudgesEl) nudgesEl.textContent = todayNudges;
+
+  // Also update Stats tab if visible
+  updateStatsTab();
+}
+
+function updateStatsTab() {
+  const todayNudges = nudges.filter(n => isToday(n.timestamp)).length;
+  const adoptionRate = todayNudges > 0
+    ? Math.min(100, Math.round((rebuttalsUsedToday / todayNudges) * 100))
+    : 0;
+
+  // Hero adoption rate
+  const heroValue = document.getElementById('stats-adoption-big');
+  if (heroValue) {
+    const oldValue = heroValue.textContent;
+    heroValue.textContent = `${adoptionRate}%`;
+    // Pulse animation when value changes
+    if (oldValue !== `${adoptionRate}%`) {
+      heroValue.classList.add('pulse');
+      setTimeout(() => heroValue.classList.remove('pulse'), 400);
+    }
+  }
+
+  // Stats cards
+  const usedEl = document.getElementById('stats-used-today');
+  const receivedEl = document.getElementById('stats-received-today');
+  const streakEl = document.getElementById('stats-streak');
+  const bestEl = document.getElementById('stats-best-streak');
+
+  if (usedEl) usedEl.textContent = rebuttalsUsedToday;
+  if (receivedEl) receivedEl.textContent = todayNudges;
+  if (streakEl) streakEl.textContent = currentStreak;
+  if (bestEl) bestEl.textContent = bestStreak;
+
+  // Fire animation for streak >= 3
+  const streakIcon = document.querySelector('.stats-card-icon.streak');
+  if (streakIcon) {
+    if (currentStreak >= 3) {
+      streakIcon.classList.add('on-fire');
+    } else {
+      streakIcon.classList.remove('on-fire');
+    }
+  }
+
+  // Update motivation message
+  updateMotivationMessage(adoptionRate, currentStreak, rebuttalsUsedToday);
+}
+
+function updateMotivationMessage(adoptionRate, streak, used) {
+  const motivationEl = document.getElementById('stats-motivation');
+  if (!motivationEl) return;
+
+  let emoji = '🎯';
+  let message = 'Start using rebuttals to build your streak!';
+
+  if (used === 0) {
+    emoji = '🎯';
+    message = 'Use your first rebuttal to get started!';
+  } else if (streak >= 5) {
+    emoji = '🔥';
+    message = `Incredible! ${streak} in a row - you're on fire!`;
+  } else if (streak >= 3) {
+    emoji = '⚡';
+    message = `Nice streak of ${streak}! Keep the momentum!`;
+  } else if (adoptionRate >= 80) {
+    emoji = '🏆';
+    message = `${adoptionRate}% adoption - elite performance!`;
+  } else if (adoptionRate >= 50) {
+    emoji = '💪';
+    message = `${adoptionRate}% adoption - solid work!`;
+  } else if (adoptionRate >= 25) {
+    emoji = '📈';
+    message = 'Good start! Try using more rebuttals.';
+  } else if (used > 0) {
+    emoji = '👍';
+    message = `${used} rebuttal${used > 1 ? 's' : ''} used - keep going!`;
+  }
+
+  motivationEl.querySelector('.motivation-emoji').textContent = emoji;
+  motivationEl.querySelector('.motivation-text').textContent = message;
 }
 
 // ==================== CONNECTION STATUS ====================
@@ -936,6 +1064,13 @@ function onRebuttalUsed() {
   rebuttalsUsedToday++;
   rebuttalsUsedTotal++;
 
+  // Update streak
+  currentStreak++;
+  if (currentStreak > bestStreak) {
+    bestStreak = currentStreak;
+  }
+  lastRebuttalWasUsed = true;
+
   // Save to localStorage
   saveRebuttalStats();
 
@@ -1012,10 +1147,13 @@ function saveRebuttalStats() {
     if (stored.date !== today) {
       stored.date = today;
       stored.todayCount = 0;
+      // Don't reset streak on new day - keep it going
     }
 
     stored.todayCount = rebuttalsUsedToday;
-    stored.totalCount = (stored.totalCount || 0) + 1;
+    stored.totalCount = rebuttalsUsedTotal;
+    stored.currentStreak = currentStreak;
+    stored.bestStreak = Math.max(stored.bestStreak || 0, bestStreak);
 
     localStorage.setItem('callsteer_rebuttal_stats', JSON.stringify(stored));
   } catch (e) {
@@ -1031,7 +1169,7 @@ function loadRebuttalStats() {
     const today = new Date().toDateString();
     const stored = JSON.parse(localStorage.getItem('callsteer_rebuttal_stats') || '{}');
 
-    // Reset if it's a new day
+    // Reset daily count if it's a new day
     if (stored.date === today) {
       rebuttalsUsedToday = stored.todayCount || 0;
     } else {
@@ -1039,7 +1177,15 @@ function loadRebuttalStats() {
     }
 
     rebuttalsUsedTotal = stored.totalCount || 0;
-    console.log('[Rebuttal] Loaded stats:', { today: rebuttalsUsedToday, total: rebuttalsUsedTotal });
+    currentStreak = stored.currentStreak || 0;
+    bestStreak = stored.bestStreak || 0;
+
+    console.log('[Rebuttal] Loaded stats:', {
+      today: rebuttalsUsedToday,
+      total: rebuttalsUsedTotal,
+      streak: currentStreak,
+      best: bestStreak
+    });
   } catch (e) {
     console.error('[Rebuttal] Failed to load stats:', e);
   }

@@ -126,52 +126,139 @@
         <span class="listening-text">Listening...</span>
       </div>
 
-      <!-- Nudge Section -->
-      <div class="section nudge-section" id="nudge-section">
-        <!-- Empty State -->
-        <div class="nudge-empty" id="nudge-empty">
-          <p class="empty-text">Ready to navigate</p>
-          <p class="empty-hint">Turn on to get AI coaching</p>
+      <!-- Tab Navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="live">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          </svg>
+          Live
+        </button>
+        <button class="tab-btn" data-tab="stats">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          Stats
+        </button>
+      </div>
+
+      <!-- Live Tab (Nudges) -->
+      <div class="tab-content active" id="tab-live">
+        <!-- Nudge Section -->
+        <div class="section nudge-section" id="nudge-section">
+          <!-- Empty State -->
+          <div class="nudge-empty" id="nudge-empty">
+            <p class="empty-text">Ready to navigate</p>
+            <p class="empty-hint">Turn on to get AI coaching</p>
+          </div>
+
+          <!-- Nudge Card (hidden by default) -->
+          <div class="nudge-card" id="nudge-card" style="display: none;">
+            <div class="nudge-header">
+              <span class="nudge-type" id="nudge-type">TIP</span>
+              <span class="nudge-time" id="nudge-time">Just now</span>
+            </div>
+            <p class="nudge-text" id="nudge-text"></p>
+            <div class="nudge-actions">
+              <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+              <button class="nudge-btn" id="dismiss-nudge-btn" title="Dismiss">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Nudge Card (hidden by default) -->
-        <div class="nudge-card" id="nudge-card" style="display: none;">
-          <div class="nudge-header">
-            <span class="nudge-type" id="nudge-type">TIP</span>
-            <span class="nudge-time" id="nudge-time">Just now</span>
+        <!-- Quick Stats Bar -->
+        <div class="section stats-section">
+          <div class="stat">
+            <span class="stat-value" id="stat-rebuttals">0</span>
+            <span class="stat-label">Used</span>
           </div>
-          <p class="nudge-text" id="nudge-text"></p>
-          <div class="nudge-actions">
-            <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-              </svg>
-            </button>
-            <button class="nudge-btn" id="dismiss-nudge-btn" title="Dismiss">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" id="stat-adoption">0%</span>
+            <span class="stat-label">Adoption</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" id="stat-nudges">0</span>
+            <span class="stat-label">Today</span>
           </div>
         </div>
       </div>
 
-      <!-- Stats Bar -->
-      <div class="section stats-section">
-        <div class="stat">
-          <span class="stat-value" id="stat-rebuttals">0</span>
-          <span class="stat-label">Used</span>
+      <!-- Stats Tab (Gamification) -->
+      <div class="tab-content" id="tab-stats">
+        <!-- Today's Performance -->
+        <div class="stats-hero">
+          <div class="stats-hero-value" id="stats-adoption-big">0%</div>
+          <div class="stats-hero-label">Adoption Rate</div>
+          <div class="stats-hero-subtitle">Today's Performance</div>
         </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-value" id="stat-adoption">0%</span>
-          <span class="stat-label">Adoption</span>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-card-icon used">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-used-today">0</span>
+              <span class="stats-card-label">Rebuttals Used</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon received">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-received-today">0</span>
+              <span class="stats-card-label">Nudges Received</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon streak">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-streak">0</span>
+              <span class="stats-card-label">Current Streak</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon best">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-best-streak">0</span>
+              <span class="stats-card-label">Best Streak</span>
+            </div>
+          </div>
         </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-value" id="stat-nudges">0</span>
-          <span class="stat-label">Today</span>
+
+        <!-- Motivation Message -->
+        <div class="stats-motivation" id="stats-motivation">
+          <span class="motivation-emoji">🎯</span>
+          <span class="motivation-text">Start using rebuttals to build your streak!</span>
         </div>
       </div>
     </div>
