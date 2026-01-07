@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CallSteer</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- Login Screen -->
@@ -23,20 +26,29 @@
     <!-- Login Content -->
     <div class="login-content">
       <div class="logo-container">
-        <svg class="logo-svg" viewBox="0 0 48 48" width="72" height="72">
+        <!-- Steering Wheel Logo SVG -->
+        <svg class="logo-svg" viewBox="0 0 64 64" width="80" height="80">
           <defs>
             <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:#00d4aa"/>
-              <stop offset="100%" style="stop-color:#00a8ff"/>
+              <stop offset="50%" style="stop-color:#00a8ff"/>
+              <stop offset="100%" style="stop-color:#a855f7"/>
             </linearGradient>
           </defs>
-          <circle cx="24" cy="24" r="16" fill="none" stroke="url(#logoGradient)" stroke-width="2"/>
-          <circle cx="24" cy="24" r="5" fill="none" stroke="url(#logoGradient)" stroke-width="1.5"/>
-          <g stroke="url(#logoGradient)" stroke-width="1.5" stroke-linecap="round">
-            <line x1="24" y1="8" x2="24" y2="19"/>
-            <line x1="24" y1="29" x2="24" y2="40"/>
-            <line x1="8" y1="24" x2="19" y2="24"/>
-            <line x1="29" y1="24" x2="40" y2="24"/>
+          <!-- Outer wheel ring -->
+          <circle cx="32" cy="32" r="26" fill="none" stroke="url(#logoGradient)" stroke-width="3"/>
+          <!-- Inner hub -->
+          <circle cx="32" cy="32" r="8" fill="none" stroke="url(#logoGradient)" stroke-width="2.5"/>
+          <!-- Spokes (6 spokes for steering wheel look) -->
+          <g stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round">
+            <!-- Top spoke (power symbol line) -->
+            <line x1="32" y1="6" x2="32" y2="24"/>
+            <!-- Other spokes -->
+            <line x1="32" y1="40" x2="32" y2="58"/>
+            <line x1="9.5" y1="19" x2="24" y2="28"/>
+            <line x1="54.5" y1="19" x2="40" y2="28"/>
+            <line x1="9.5" y1="45" x2="24" y2="36"/>
+            <line x1="54.5" y1="45" x2="40" y2="36"/>
           </g>
         </svg>
       </div>
@@ -77,6 +89,11 @@
         <span class="status-indicator" id="header-status"></span>
         <span class="header-title">CallSteer</span>
       </div>
+      <button class="expand-btn" id="expand-btn" title="Compact mode">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 15l-6-6-6 6"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Main Content -->
@@ -84,15 +101,15 @@
       <!-- Device Settings -->
       <div class="section device-section">
         <div class="device-row">
-          <label class="device-label">🎤 Microphone (Your Voice)</label>
+          <label class="device-label">Microphone (Your Voice)</label>
           <select id="mic-select" class="device-select">
-            <option value="">Loading...</option>
+            <option value="">Select microphone...</option>
           </select>
         </div>
         <div class="device-row">
-          <label class="device-label">🔊 Speaker Output (Customer Voice)</label>
+          <label class="device-label">Speaker Output (Customer Voice)</label>
           <select id="speaker-select" class="device-select">
-            <option value="">Loading...</option>
+            <option value="">Select speaker...</option>
           </select>
         </div>
       </div>
@@ -104,9 +121,23 @@
           <span class="toggle-hint" id="toggle-hint">Tap to start listening</span>
         </div>
         <button class="power-btn" id="power-toggle">
-          <svg class="power-icon" viewBox="0 0 24 24" width="28" height="28">
-            <path d="M12 3v9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Steering Wheel + Power Button Hybrid SVG -->
+          <svg class="power-icon" viewBox="0 0 48 48" width="36" height="36">
+            <!-- Outer wheel -->
+            <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2.5"/>
+            <!-- Power symbol gap at top -->
+            <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-dasharray="110 16" stroke-dashoffset="60"/>
+            <!-- Inner hub (power symbol circle) -->
+            <circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+            <!-- Power line (top spoke) -->
+            <line x1="24" y1="4" x2="24" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Spokes -->
+            <line x1="24" y1="31" x2="24" y2="44" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7.5" y1="14.5" x2="17" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="40.5" y1="14.5" x2="31" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7.5" y1="33.5" x2="17" y2="27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="40.5" y1="33.5" x2="31" y2="27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
@@ -175,6 +206,9 @@
       <span class="footer-text" id="status-text">Connecting...</span>
     </div>
   </div>
+
+  <!-- Nudge Popup Container (for compact mode) -->
+  <div id="nudge-popup-container"></div>
 
   <script src="renderer.js"></script>
 </body>
