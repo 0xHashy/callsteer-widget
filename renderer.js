@@ -147,12 +147,21 @@ function setupModeButton() {
   const modeBtn = document.getElementById('mode-btn');
   modeBtn?.addEventListener('click', cycleWidgetMode);
 
-  // In mini mode, double-click on power button to expand
+  // In mini mode, RIGHT-CLICK on power button to expand back
   const powerToggle = document.getElementById('power-toggle');
-  powerToggle?.addEventListener('dblclick', (e) => {
+  powerToggle?.addEventListener('contextmenu', (e) => {
     if (widgetMode === 'mini') {
       e.preventDefault();
       e.stopPropagation();
+      setWidgetMode('expanded');
+    }
+  });
+
+  // Also allow double-click anywhere on mini widget to expand
+  const mainWidget = document.getElementById('main-widget');
+  mainWidget?.addEventListener('dblclick', (e) => {
+    if (widgetMode === 'mini') {
+      e.preventDefault();
       setWidgetMode('expanded');
     }
   });
