@@ -641,15 +641,30 @@ button, select {
   margin-bottom: 10px;
 }
 
-/* Echo styling - like a route instruction */
+/* Echo styling - MUST BE NOTICEABLE - shows what customer said */
 .nudge-echo {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-style: italic;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  padding-left: 10px;
-  border-left: 2px solid rgba(0, 199, 190, 0.4);
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 199, 190, 0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  text-shadow: 0 0 10px rgba(0, 199, 190, 0.3);
+}
+
+/* Add quotes around the echo text via CSS */
+.nudge-echo::before {
+  content: '"';
+  opacity: 0.7;
+}
+
+.nudge-echo::after {
+  content: '"';
+  opacity: 0.7;
 }
 
 .nudge-suggestion {
