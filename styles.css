@@ -74,25 +74,34 @@ button, select {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Visible but gentle pulsing border when listening */
+/* Dynamic tri-color pulsing border when listening - HIGHLY VISIBLE */
 .widget.listening,
 #main-widget.listening {
   border: 2px solid #00C7BE !important;
-  animation: borderPulse 3s ease-in-out infinite;
+  animation: borderTriPulse 4s ease-in-out infinite;
 }
 
-@keyframes borderPulse {
+@keyframes borderTriPulse {
   0%, 100% {
     border-color: #00C7BE;
     box-shadow:
-      0 0 10px rgba(0, 199, 190, 0.6),
-      0 0 20px rgba(0, 199, 190, 0.3);
+      0 0 12px rgba(0, 199, 190, 0.7),
+      0 0 24px rgba(0, 199, 190, 0.4),
+      inset 0 0 8px rgba(0, 199, 190, 0.1);
   }
-  50% {
+  33% {
     border-color: #4A90D9;
     box-shadow:
-      0 0 15px rgba(74, 144, 217, 0.7),
-      0 0 30px rgba(74, 144, 217, 0.4);
+      0 0 12px rgba(74, 144, 217, 0.7),
+      0 0 24px rgba(74, 144, 217, 0.4),
+      inset 0 0 8px rgba(74, 144, 217, 0.1);
+  }
+  66% {
+    border-color: #34C759;
+    box-shadow:
+      0 0 12px rgba(52, 199, 89, 0.7),
+      0 0 24px rgba(52, 199, 89, 0.4),
+      inset 0 0 8px rgba(52, 199, 89, 0.1);
   }
 }
 
