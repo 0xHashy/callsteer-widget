@@ -74,62 +74,22 @@ button, select {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* TRON-style animated border when listening */
+/* Subtle outer glow when listening - gentle pulsing border */
 .widget.listening,
 #main-widget.listening {
-  border: 2px solid transparent !important;
-  position: relative;
+  border: 2px solid #00C7BE !important;
+  animation: subtleBorderPulse 4s ease-in-out infinite;
 }
 
-/* Animated TRON border - glowing line that loops around */
-.widget.listening::before,
-#main-widget.listening::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border-radius: 18px;
-  background: linear-gradient(90deg,
-    #00C7BE, #4A90D9, #8B5CF6, #00C7BE, #4A90D9, #8B5CF6, #00C7BE
-  );
-  background-size: 400% 100%;
-  animation: tronBorderFlow 3s linear infinite;
-  z-index: -1;
-  opacity: 1;
-}
-
-/* Inner mask to create border effect */
-.widget.listening::after,
-#main-widget.listening::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  right: 2px;
-  bottom: 2px;
-  border-radius: 14px;
-  background: var(--glass-bg);
-  z-index: -1;
-}
-
-@keyframes tronBorderFlow {
-  0% {
-    background-position: 0% 50%;
+@keyframes subtleBorderPulse {
+  0%, 100% {
+    border-color: #00C7BE;
+    box-shadow: 0 0 8px rgba(0, 199, 190, 0.4);
   }
-  100% {
-    background-position: 400% 50%;
+  50% {
+    border-color: #4A90D9;
+    box-shadow: 0 0 12px rgba(74, 144, 217, 0.5);
   }
-}
-
-/* Glowing outer effect */
-.widget.listening,
-#main-widget.listening {
-  box-shadow:
-    0 0 15px rgba(0, 199, 190, 0.4),
-    0 0 30px rgba(74, 144, 217, 0.2),
-    inset 0 0 20px rgba(0, 199, 190, 0.1);
 }
 
 /* ==================== RESPONSIVE SCALING ==================== */
@@ -511,22 +471,18 @@ button, select {
 .power-btn.active {
   border-color: var(--accent);
   background: rgba(0, 199, 190, 0.15);
-  box-shadow: 0 0 20px rgba(0, 199, 190, 0.3);
-  animation: powerBtnPulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(0, 199, 190, 0.3);
+  animation: powerBtnPulse 4s ease-in-out infinite;
 }
 
 @keyframes powerBtnPulse {
   0%, 100% {
     border-color: #00C7BE;
-    box-shadow: 0 0 10px rgba(0, 199, 190, 0.5), 0 0 20px rgba(0, 199, 190, 0.3);
+    box-shadow: 0 0 8px rgba(0, 199, 190, 0.4);
   }
-  33% {
+  50% {
     border-color: #4A90D9;
-    box-shadow: 0 0 15px rgba(74, 144, 217, 0.6), 0 0 25px rgba(74, 144, 217, 0.3);
-  }
-  66% {
-    border-color: #8B5CF6;
-    box-shadow: 0 0 15px rgba(139, 92, 246, 0.6), 0 0 25px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 12px rgba(74, 144, 217, 0.4);
   }
 }
 
