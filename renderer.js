@@ -2142,9 +2142,12 @@ function startSystemRecording() {
 // Session-based call ID - ONE ID for entire listening session
 let currentCallId = null;
 
-// Client-side debounce - don't send transcripts within 10 seconds of last nudge
+// Client-side debounce - don't send transcripts within X seconds of last nudge
 let lastNudgeTime = 0;
-const CLIENT_DEBOUNCE_MS = 10000;
+const CLIENT_DEBOUNCE_MS = 4000; // 4 seconds - balance between catching objections and not spamming
+
+// Prevent double-fire: block sending while a request is in flight
+let requestInFlight = false;
 
 function getOrCreateCallId() {
   if (!currentCallId) {
@@ -2163,7 +2166,13 @@ function resetCallId() {
 async function sendTranscriptToBackend(transcript, speaker) {
   if (!clientCode || !transcript) return;
 
-  // Debounce check
+  // Prevent double-fire: don't send if a request is already in flight
+  if (requestInFlight) {
+    console.log(`[Backend] Request in flight, skipping: "${transcript.substring(0, 30)}..."`);
+    return;
+  }
+
+  // Debounce check - don't send within X seconds of last nudge
   const timeSinceLastNudge = Date.now() - lastNudgeTime;
   if (lastNudgeTime > 0 && timeSinceLastNudge < CLIENT_DEBOUNCE_MS) {
     console.log(`[Backend] Debounce active (${((CLIENT_DEBOUNCE_MS - timeSinceLastNudge) / 1000).toFixed(1)}s)`);
@@ -2172,6 +2181,11 @@ async function sendTranscriptToBackend(transcript, speaker) {
 
   const endpoint = `${API_BASE_URL}/api/transcribe`;
   const callId = getOrCreateCallId();
+
+  console.log(`[Backend] >>> Sending ${speaker}: "${transcript.substring(0, 50)}..."`);
+
+  // Mark request as in flight
+  requestInFlight = true;
 
   try {
     const response = await fetch(endpoint, {
@@ -2189,19 +2203,25 @@ async function sendTranscriptToBackend(transcript, speaker) {
     });
 
     if (!response.ok) {
-      console.error('[Backend] Failed:', response.status);
+      console.error('[Backend] Failed:', response.status, await response.text());
       return;
     }
 
     const data = await response.json();
+    console.log('[Backend] <<< Response:', JSON.stringify(data).substring(0, 200));
 
     if (data.nudge) {
       console.log('[Backend] Nudge received:', data.nudge);
       lastNudgeTime = Date.now();
       processNudges([data.nudge]);
+    } else {
+      console.log('[Backend] No nudge returned (Claude said null)');
     }
 
   } catch (error) {
     console.error('[Backend] Error:', error);
+  } finally {
+    // Always clear the in-flight flag
+    requestInFlight = false;
   }
 }

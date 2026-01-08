@@ -3,6 +3,9 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
+// Dev mode flag - set to true to enable DevTools
+const DEV_MODE = true;
+
 // Configure auto-updater
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
@@ -153,8 +156,16 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // DevTools - only enable in development (uncomment line below when debugging)
-  // mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // DevTools - F12 or Ctrl+Shift+I to toggle
+  if (DEV_MODE) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // F12 or Ctrl+Shift+I to toggle DevTools
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+        mainWindow.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    });
+  }
 
   // Make window draggable
   mainWindow.setMenu(null);
@@ -257,6 +268,14 @@ function createTray() {
         mainWindow.show();
         mainWindow.focus();
       }
+    },
+    {
+      label: 'Developer Tools (F12)',
+      click: () => {
+        mainWindow.show();
+        mainWindow.webContents.toggleDevTools();
+      },
+      visible: DEV_MODE
     },
     {
       type: 'separator'
