@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CallSteer</title>
+  <title>CallSteer.ai</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +16,7 @@
         <button class="control-btn minimize" id="login-minimize-btn"></button>
       </div>
       <div class="header-brand">
-        <span class="header-title">CallSteer</span>
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
       </div>
     </div>
 
@@ -40,7 +40,7 @@
         </svg>
       </div>
 
-      <h1 class="brand-title">CallSteer</h1>
+      <h1 class="brand-title">CallSteer<span class="title-ai">.ai</span></h1>
       <p class="brand-subtitle">Navigate to Close</p>
 
       <div class="login-form">
@@ -84,7 +84,7 @@
       </div>
       <div class="header-brand">
         <span class="status-indicator" id="header-status"></span>
-        <span class="header-title">CallSteer</span>
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
       </div>
       <button class="signout-btn" id="signout-btn" title="Sign Out">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -171,6 +171,17 @@
             </div>
             <p class="nudge-text" id="nudge-text"></p>
             <div class="nudge-actions">
+              <button class="nudge-btn vote-btn" id="vote-up-btn" title="Good suggestion">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+              </button>
+              <button class="nudge-btn vote-btn" id="vote-down-btn" title="Bad suggestion">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+                </svg>
+              </button>
+              <div class="nudge-actions-divider"></div>
               <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2"/>

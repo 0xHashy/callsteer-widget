@@ -796,6 +796,8 @@ function stopPingInterval() {
 function setupNudgeActions() {
   document.getElementById('copy-nudge-btn')?.addEventListener('click', copyCurrentNudge);
   document.getElementById('dismiss-nudge-btn')?.addEventListener('click', dismissCurrentNudge);
+  document.getElementById('vote-up-btn')?.addEventListener('click', () => voteOnNudge('up'));
+  document.getElementById('vote-down-btn')?.addEventListener('click', () => voteOnNudge('down'));
 }
 
 function startPolling() {
@@ -875,6 +877,12 @@ function displayNudge(nudge) {
   const nudgeType = document.getElementById('nudge-type');
   const nudgeTime = document.getElementById('nudge-time');
   const nudgeText = document.getElementById('nudge-text');
+  const voteUpBtn = document.getElementById('vote-up-btn');
+  const voteDownBtn = document.getElementById('vote-down-btn');
+
+  // Reset vote buttons for new nudge
+  voteUpBtn?.classList.remove('voted');
+  voteDownBtn?.classList.remove('voted');
 
   if (!nudge) {
     nudgeCard.style.display = 'none';
@@ -1047,6 +1055,55 @@ function dismissCurrentNudge() {
     nudgeCard.style.transform = '';
   }, 200);
 }
+
+/**
+ * Vote on the current nudge (thumbs up/down)
+ * Sends feedback to backend for AI learning
+ */
+async function voteOnNudge(vote) {
+  if (!currentNudge?.nudge_id) {
+    console.warn('[Vote] No current nudge to vote on');
+    return;
+  }
+
+  const nudgeId = currentNudge.nudge_id;
+  const voteUpBtn = document.getElementById('vote-up-btn');
+  const voteDownBtn = document.getElementById('vote-down-btn');
+
+  // Visual feedback - show which button was clicked
+  if (vote === 'up') {
+    voteUpBtn?.classList.add('voted');
+    voteDownBtn?.classList.remove('voted');
+  } else {
+    voteDownBtn?.classList.add('voted');
+    voteUpBtn?.classList.remove('voted');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/nudges/${encodeURIComponent(nudgeId)}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vote: vote,
+        rep_id: repId,
+        customer_objection: lastCustomerTranscript || null
+      })
+    });
+
+    if (response.ok) {
+      const emoji = vote === 'up' ? '👍' : '👎';
+      console.log(`[Vote] ${emoji} Recorded for nudge: ${nudgeId}`);
+      showToast(vote === 'up' ? 'Thanks for the feedback!' : 'Noted, we\'ll improve!', 'success');
+    } else {
+      console.error('[Vote] Failed to record vote:', response.status);
+    }
+  } catch (error) {
+    console.error('[Vote] Error:', error);
+  }
+}
+
+// Track last customer transcript for vote context
+let lastCustomerTranscript = null;
 
 // ==================== TABS ====================
 
@@ -2033,6 +2090,8 @@ function connectDeepgramSystem() {
           console.log(`[System/CUSTOMER] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
           if (isFinal && transcript.length > 5) {
+            // Store for vote context
+            lastCustomerTranscript = transcript;
             sendTranscriptToBackend(transcript, 'customer');
           }
         }

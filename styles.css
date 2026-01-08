@@ -301,7 +301,8 @@ button, select {
   display: flex;
   align-items: center;
   gap: 6px;
-  -webkit-app-region: no-drag;
+  /* Allow dragging over the brand text */
+  pointer-events: none;
 }
 
 .status-indicator {
@@ -322,6 +323,11 @@ button, select {
   font-weight: 600;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
+}
+
+.title-ai {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .signout-btn {
@@ -681,6 +687,48 @@ button, select {
 .nudge-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* Vote buttons styling */
+.vote-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+#vote-up-btn:hover {
+  color: var(--success);
+  border-color: rgba(52, 199, 89, 0.4);
+  background: rgba(52, 199, 89, 0.1);
+}
+
+#vote-down-btn:hover {
+  color: var(--error);
+  border-color: rgba(255, 69, 58, 0.4);
+  background: rgba(255, 69, 58, 0.1);
+}
+
+/* Voted state */
+.vote-btn.voted {
+  pointer-events: none;
+}
+
+#vote-up-btn.voted {
+  color: var(--success);
+  border-color: rgba(52, 199, 89, 0.5);
+  background: rgba(52, 199, 89, 0.15);
+}
+
+#vote-down-btn.voted {
+  color: var(--error);
+  border-color: rgba(255, 69, 58, 0.5);
+  background: rgba(255, 69, 58, 0.15);
+}
+
+/* Divider between vote and action buttons */
+.nudge-actions-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--glass-border);
+  margin: 0 2px;
 }
 
 /* ==================== NUDGE POPUP (Mini Mode) ==================== */
