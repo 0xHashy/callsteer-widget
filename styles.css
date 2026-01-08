@@ -74,21 +74,25 @@ button, select {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Subtle outer glow when listening - gentle pulsing border */
+/* Visible but gentle pulsing border when listening */
 .widget.listening,
 #main-widget.listening {
   border: 2px solid #00C7BE !important;
-  animation: subtleBorderPulse 4s ease-in-out infinite;
+  animation: borderPulse 3s ease-in-out infinite;
 }
 
-@keyframes subtleBorderPulse {
+@keyframes borderPulse {
   0%, 100% {
     border-color: #00C7BE;
-    box-shadow: 0 0 8px rgba(0, 199, 190, 0.4);
+    box-shadow:
+      0 0 10px rgba(0, 199, 190, 0.6),
+      0 0 20px rgba(0, 199, 190, 0.3);
   }
   50% {
     border-color: #4A90D9;
-    box-shadow: 0 0 12px rgba(74, 144, 217, 0.5);
+    box-shadow:
+      0 0 15px rgba(74, 144, 217, 0.7),
+      0 0 30px rgba(74, 144, 217, 0.4);
   }
 }
 
