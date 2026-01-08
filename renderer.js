@@ -37,6 +37,12 @@ const REBUTTAL_MATCH_THRESHOLD = 0.35; // 35% word match = rebuttal used (allows
 let repTranscriptBuffer = [];        // Array of {text, timestamp} chunks
 const TRANSCRIPT_BUFFER_WINDOW_MS = 30000; // Keep last 30 seconds of speech
 
+// ==================== AUTO-TIMEOUT STATE ====================
+let lastAudioActivityTime = 0;       // Timestamp of last audio activity
+let autoTimeoutTimer = null;         // Timer for auto-timeout check
+const AUTO_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of dead air = auto power off
+const AUTO_TIMEOUT_CHECK_MS = 30000; // Check every 30 seconds
+
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
   console.error('[WINDOW ERROR]', msg);
@@ -504,6 +510,7 @@ async function toggleListening() {
     disconnectNudgeWebSocket();
     stopAudioCapture(); // Stop mic and system audio capture
     stopPolling(); // Stop fetching old nudges
+    stopAutoTimeoutCheck(); // Stop auto-timeout checker
     isListening = false;
 
     // Clear any displayed nudges when turning off - fresh start for next session
@@ -515,6 +522,7 @@ async function toggleListening() {
 
     // Update UI to OFF state
     powerToggle?.classList.remove('active');
+    document.getElementById('main-widget')?.classList.remove('listening');
     if (toggleStatus) {
       toggleStatus.classList.remove('active');
       toggleStatus.textContent = 'OFF';
@@ -545,6 +553,7 @@ async function toggleListening() {
 
     // Update UI to ON state first
     powerToggle?.classList.add('active');
+    document.getElementById('main-widget')?.classList.add('listening');
     if (toggleStatus) {
       toggleStatus.classList.add('active');
       toggleStatus.textContent = 'ON';
@@ -570,8 +579,64 @@ async function toggleListening() {
       if (toggleHint) toggleHint.textContent = 'WebSocket only (audio failed)';
     }
 
+    // Start auto-timeout checker
+    startAutoTimeoutCheck();
+
     console.log('[Toggle] Now ON');
   }
+}
+
+// ==================== AUTO-TIMEOUT FUNCTIONS ====================
+
+/**
+ * Start checking for dead air - auto power off after 5 minutes of no audio
+ */
+function startAutoTimeoutCheck() {
+  stopAutoTimeoutCheck(); // Clear any existing timer
+
+  // Initialize last activity time
+  lastAudioActivityTime = Date.now();
+
+  // Check periodically for dead air
+  autoTimeoutTimer = setInterval(() => {
+    if (!isListening) {
+      stopAutoTimeoutCheck();
+      return;
+    }
+
+    const timeSinceActivity = Date.now() - lastAudioActivityTime;
+    const minutesSinceActivity = Math.floor(timeSinceActivity / 60000);
+
+    if (timeSinceActivity >= AUTO_TIMEOUT_MS) {
+      console.log('[AutoTimeout] 5 minutes of dead air - powering off listener');
+      showToast('Auto-powered off (no audio activity)', 'warning');
+
+      // Trigger the toggle to turn off
+      toggleListening();
+    } else if (minutesSinceActivity >= 3) {
+      // Warn user at 3 minutes
+      console.log(`[AutoTimeout] ${minutesSinceActivity} minutes of inactivity`);
+    }
+  }, AUTO_TIMEOUT_CHECK_MS);
+
+  console.log('[AutoTimeout] Started - will power off after 5 min of dead air');
+}
+
+/**
+ * Stop the auto-timeout checker
+ */
+function stopAutoTimeoutCheck() {
+  if (autoTimeoutTimer) {
+    clearInterval(autoTimeoutTimer);
+    autoTimeoutTimer = null;
+  }
+}
+
+/**
+ * Record audio activity to reset the timeout
+ */
+function recordAudioActivity() {
+  lastAudioActivityTime = Date.now();
 }
 
 /**
@@ -1377,6 +1442,7 @@ function checkRebuttalMatch(repTranscript) {
 
 /**
  * Called when rep successfully uses a rebuttal
+ * NOTE: Does NOT auto-dismiss - rep can keep reading the full suggestion
  */
 function onRebuttalUsed() {
   // Increment counters
@@ -1396,7 +1462,7 @@ function onRebuttalUsed() {
   // Sync adoption to backend for accurate leaderboard stats
   syncAdoptionToBackend();
 
-  // Show success animation on nudge card
+  // Show success animation on nudge card (but DON'T dismiss)
   showRebuttalSuccess();
 
   // Play success sound
@@ -1405,12 +1471,10 @@ function onRebuttalUsed() {
   // Update stats display
   updateStats();
 
-  // Auto-dismiss the nudge after animation
-  setTimeout(() => {
-    dismissCurrentNudge();
-  }, 1500);
+  // DO NOT auto-dismiss - let rep finish reading the full suggestion
+  // They can manually dismiss when ready, or it stays until next nudge
 
-  // Clear current suggestion to prevent re-matching
+  // Clear current suggestion to prevent re-matching same nudge
   currentSuggestionText = '';
 }
 
@@ -1451,31 +1515,37 @@ async function syncAdoptionToBackend() {
 
 /**
  * Show checkmark animation on nudge card
+ * Checkmark appears in corner, doesn't block text
+ * Auto-dismisses after delay so rep can finish reading
  */
 function showRebuttalSuccess() {
   const nudgeCard = document.getElementById('nudge-card');
   if (!nudgeCard) return;
 
-  // Add success class for animation
+  // Add success class for green border glow
   nudgeCard.classList.add('rebuttal-success');
 
-  // Create checkmark overlay
+  // Create small checkmark badge in top-right corner (doesn't block text)
   const checkmark = document.createElement('div');
-  checkmark.className = 'rebuttal-checkmark';
+  checkmark.className = 'rebuttal-checkmark-badge';
   checkmark.innerHTML = `
-    <svg viewBox="0 0 52 52" width="48" height="48">
-      <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#34C759" stroke-width="3"/>
-      <path class="checkmark-check" fill="none" stroke="#34C759" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M14 27l8 8 16-16"/>
+    <svg viewBox="0 0 24 24" width="20" height="20">
+      <circle cx="12" cy="12" r="10" fill="#34C759"/>
+      <path fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 12l3 3 7-7"/>
     </svg>
-    <span class="rebuttal-label">Nice!</span>
   `;
   nudgeCard.appendChild(checkmark);
 
-  // Remove after animation
+  // After 4 seconds, fade out checkmark and auto-dismiss nudge
   setTimeout(() => {
-    checkmark.remove();
-    nudgeCard.classList.remove('rebuttal-success');
-  }, 1500);
+    checkmark.classList.add('fade-out');
+    setTimeout(() => {
+      checkmark.remove();
+      nudgeCard.classList.remove('rebuttal-success');
+      // Auto-dismiss the nudge after rep has had time to finish reading
+      dismissCurrentNudge();
+    }, 300);
+  }, 4000); // 4 second delay before clearing
 }
 
 /**
@@ -1728,6 +1798,9 @@ function connectDeepgramMic() {
         const isFinal = data.is_final;
 
         if (transcript.trim()) {
+          // Record audio activity to prevent auto-timeout
+          recordAudioActivity();
+
           console.log(`[Mic/REP] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
           // Check if rep used the suggested rebuttal (fuzzy match)
@@ -1954,6 +2027,9 @@ function connectDeepgramSystem() {
         const isFinal = data.is_final;
 
         if (transcript.trim()) {
+          // Record audio activity to prevent auto-timeout
+          recordAudioActivity();
+
           console.log(`[System/CUSTOMER] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
           if (isFinal && transcript.length > 5) {

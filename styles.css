@@ -68,9 +68,68 @@ button, select {
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--glass-border);
+  border: 2px solid var(--glass-border);
   container-type: size;
   container-name: widget;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* TRON-style animated border when listening */
+.widget.listening,
+#main-widget.listening {
+  border: 2px solid transparent !important;
+  position: relative;
+}
+
+/* Animated TRON border - glowing line that loops around */
+.widget.listening::before,
+#main-widget.listening::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 18px;
+  background: linear-gradient(90deg,
+    #00C7BE, #4A90D9, #8B5CF6, #00C7BE, #4A90D9, #8B5CF6, #00C7BE
+  );
+  background-size: 400% 100%;
+  animation: tronBorderFlow 3s linear infinite;
+  z-index: -1;
+  opacity: 1;
+}
+
+/* Inner mask to create border effect */
+.widget.listening::after,
+#main-widget.listening::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  z-index: -1;
+}
+
+@keyframes tronBorderFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 400% 50%;
+  }
+}
+
+/* Glowing outer effect */
+.widget.listening,
+#main-widget.listening {
+  box-shadow:
+    0 0 15px rgba(0, 199, 190, 0.4),
+    0 0 30px rgba(74, 144, 217, 0.2),
+    inset 0 0 20px rgba(0, 199, 190, 0.1);
 }
 
 /* ==================== RESPONSIVE SCALING ==================== */
@@ -453,6 +512,22 @@ button, select {
   border-color: var(--accent);
   background: rgba(0, 199, 190, 0.15);
   box-shadow: 0 0 20px rgba(0, 199, 190, 0.3);
+  animation: powerBtnPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes powerBtnPulse {
+  0%, 100% {
+    border-color: #00C7BE;
+    box-shadow: 0 0 10px rgba(0, 199, 190, 0.5), 0 0 20px rgba(0, 199, 190, 0.3);
+  }
+  33% {
+    border-color: #4A90D9;
+    box-shadow: 0 0 15px rgba(74, 144, 217, 0.6), 0 0 25px rgba(74, 144, 217, 0.3);
+  }
+  66% {
+    border-color: #8B5CF6;
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.6), 0 0 25px rgba(139, 92, 246, 0.3);
+  }
 }
 
 .power-icon {
@@ -977,6 +1052,7 @@ button, select {
   background: linear-gradient(135deg, rgba(52, 199, 89, 0.15), rgba(52, 199, 89, 0.08)) !important;
 }
 
+/* Old full-overlay checkmark (deprecated) */
 .rebuttal-checkmark {
   position: absolute;
   top: 0;
@@ -992,6 +1068,26 @@ button, select {
   gap: 8px;
   animation: checkmarkFadeIn 0.3s ease-out;
   z-index: 10;
+}
+
+/* New small badge in corner - doesn't block text */
+.rebuttal-checkmark-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  animation: badgePop 0.3s ease-out;
+}
+
+.rebuttal-checkmark-badge.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes checkmarkFadeIn {
