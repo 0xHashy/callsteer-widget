@@ -2689,15 +2689,15 @@ function startMicRecording() {
 }
 
 // ==================== SYSTEM AUDIO CAPTURE (CUSTOMER VOICE) ====================
-// Uses Electron's desktopCapturer + getUserMedia with chromeMediaSource: 'desktop'
-// Tries multiple approaches: 1) No source ID, 2) Screen source, 3) Window source
+// Uses getDisplayMedia with audio - same approach that works in Chrome
+// Electron 39+ supports this with proper flags
 
 async function startSystemAudioCapture() {
   const toggleHint = document.getElementById('toggle-hint');
 
   try {
     console.log('[System] ═══════════════════════════════════════════════════');
-    console.log('[System] STARTING SYSTEM AUDIO CAPTURE (chromeMediaSource)');
+    console.log('[System] STARTING SYSTEM AUDIO CAPTURE (getDisplayMedia)');
     console.log('[System] persistentSystemStream exists:', !!persistentSystemStream);
     console.log('[System] systemStreamMuted:', systemStreamMuted);
     console.log('[System] ═══════════════════════════════════════════════════');
@@ -2725,97 +2725,22 @@ async function startSystemAudioCapture() {
       }
     }
 
-    if (toggleHint) toggleHint.textContent = 'Capturing system audio...';
+    if (toggleHint) toggleHint.textContent = 'Select screen to share audio...';
 
     // ═══════════════════════════════════════════════════════════════════
-    // TRY MULTIPLE APPROACHES FOR SYSTEM AUDIO CAPTURE
+    // USE getDisplayMedia - SAME AS CHROME
+    // This shows the native Windows picker with "Share audio" checkbox
     // ═══════════════════════════════════════════════════════════════════
 
-    let stream = null;
+    console.log('[System] Calling getDisplayMedia({ video: true, audio: true })...');
+    console.log('[System] The native Windows picker should appear now...');
 
-    // APPROACH 1: No source ID - capture ALL system audio
-    console.log('[System] Approach 1: Trying capture without source ID (all system audio)...');
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          mandatory: {
-            chromeMediaSource: 'desktop'
-          }
-        },
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop'
-          }
-        }
-      });
-      console.log('[System] Approach 1 SUCCESS - got stream without source ID');
-    } catch (err1) {
-      console.log('[System] Approach 1 failed:', err1.name, err1.message);
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true
+    });
 
-      // APPROACH 2: Use a SCREEN source (not window)
-      console.log('[System] Approach 2: Trying with screen source...');
-      try {
-        const sources = await window.electronAPI.getDesktopSources();
-        const screenSource = sources.find(s => s.id.startsWith('screen:'));
-
-        if (screenSource) {
-          console.log('[System] Using screen source:', screenSource.name, screenSource.id);
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: screenSource.id
-              }
-            },
-            video: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: screenSource.id
-              }
-            }
-          });
-          console.log('[System] Approach 2 SUCCESS - got stream with screen source');
-        } else {
-          throw new Error('No screen source found');
-        }
-      } catch (err2) {
-        console.log('[System] Approach 2 failed:', err2.name || err2, err2.message || '');
-
-        // APPROACH 3: Let user pick from our custom picker (window sources)
-        console.log('[System] Approach 3: Showing picker for window source...');
-        if (toggleHint) toggleHint.textContent = 'Select audio source...';
-
-        const selectedSource = await showCallAppPicker();
-        if (!selectedSource) {
-          console.log('[System] User cancelled picker');
-          if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
-          return;
-        }
-
-        console.log('[System] Selected source:', selectedSource.name, 'ID:', selectedSource.id);
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: selectedSource.id
-            }
-          },
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: selectedSource.id
-            }
-          }
-        });
-        console.log('[System] Approach 3 SUCCESS - got stream with window source');
-      }
-    }
-
-    if (!stream) {
-      throw new Error('All capture approaches failed');
-    }
-
-    console.log('[System] Got stream from getUserMedia!');
+    console.log('[System] Got stream from getDisplayMedia!');
     console.log('[System] Audio tracks:', stream.getAudioTracks().length);
     console.log('[System] Video tracks:', stream.getVideoTracks().length);
 
@@ -2829,9 +2754,9 @@ async function startSystemAudioCapture() {
     // Check if we got audio
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
-      console.warn('[System] No audio track received');
+      console.warn('[System] No audio track - user may not have checked "Share audio"');
       if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
-      showToast('No system audio from selected source.', 'warning');
+      showToast('No audio. Enable "Share audio" in the picker.', 'warning');
       return;
     }
 
@@ -2867,10 +2792,12 @@ async function startSystemAudioCapture() {
 
     if (error.name === 'NotAllowedError') {
       showToast('Screen share cancelled. Using mic only.', 'info');
+    } else if (error.name === 'NotSupportedError') {
+      showToast('getDisplayMedia not supported. Update Electron.', 'error');
     } else if (error.name === 'NotReadableError') {
-      showToast('Audio source busy. Try closing other apps using audio.', 'warning');
+      showToast('Audio source busy. Try closing other apps.', 'warning');
     } else {
-      showToast('System audio not available. Using mic only.', 'warning');
+      showToast(`Audio error: ${error.message}`, 'warning');
     }
   }
 }

@@ -6,18 +6,15 @@ const fs = require('fs');
 const DEV_MODE = true;
 
 // Enable audio capture features for Windows - MUST be before app.ready
-// These flags are REQUIRED for chromeMediaSource: 'desktop' to work in getUserMedia
+// These flags match Chrome's capabilities for getDisplayMedia with audio
+app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer,ScreenCaptureKitMac,DesktopCaptureAudio');
+app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaCaptureMuteAudio');
 app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
-app.commandLine.appendSwitch('enable-features', 'DesktopCaptureAudio,WebRTCPipeWireCapturer');
-app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
-// Allow insecure localhost for development (audio capture requires secure context)
+// Allow file:// protocol to use media APIs
 app.commandLine.appendSwitch('allow-insecure-localhost');
-// Disable GPU sandbox to avoid audio capture issues on some Windows systems
-app.commandLine.appendSwitch('disable-gpu-sandbox');
 
-// NOTE: We use desktopCapturer + getUserMedia with chromeMediaSource: 'desktop'
-// This is the standard Electron approach for system audio capture (used by Discord, OBS, etc.)
-// getDisplayMedia does NOT work in Electron - it returns 'Not supported'
+// NOTE: getDisplayMedia DOES work in Electron 39+ with proper configuration
+// No custom setDisplayMediaRequestHandler needed - let Electron use native picker like Chrome
 
 // Auto-updater - lazy load to avoid accessing app before ready
 let autoUpdater = null;
@@ -132,8 +129,7 @@ function createWindow() {
     return allowedPermissions.includes(permission);
   });
 
-  // NOTE: setDisplayMediaRequestHandler is set up on session.defaultSession in app.on('ready')
-  // This provides loopback audio for system audio capture via getDisplayMedia
+  // NOTE: No custom setDisplayMediaRequestHandler - let Electron use native picker like Chrome
 
   // Set always on top with highest level to stay above all windows
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -182,9 +178,7 @@ function createWindow() {
   // Create system tray icon
   createTray();
 
-  // NOTE: Do NOT call clearDisplayMediaHandler() here!
-  // electron-audio-loopback sets up its handler in enableLoopbackAudio IPC
-  // and we must not clear it or system audio capture will fail
+  // NOTE: No custom handlers needed - Electron 39+ uses native picker like Chrome
 }
 
 function createTray() {
@@ -444,46 +438,6 @@ ipcMain.handle('get-system-audio-source', async () => {
 // NOTE: electron-audio-loopback's initMain() automatically registers
 // 'enable-loopback-audio' and 'disable-loopback-audio' IPC handlers.
 // Do NOT manually register them here or you'll get duplicate handler errors.
-
-// Clear any display media handler on startup to ensure system picker works
-// This is called from createWindow after mainWindow is ready
-// IMPORTANT: electron-audio-loopback or other libs may set a handler that intercepts getDisplayMedia
-function clearDisplayMediaHandler() {
-  try {
-    const { session } = require('electron');
-    // Set handler to null to ensure the native Windows picker appears
-    session.defaultSession.setDisplayMediaRequestHandler(null);
-    console.log('[Main] ═══════════════════════════════════════════════════');
-    console.log('[Main] Display media handler set to NULL');
-    console.log('[Main] Windows system picker will now be used for getDisplayMedia');
-    console.log('[Main] ═══════════════════════════════════════════════════');
-  } catch (err) {
-    console.warn('[Main] Could not clear display media handler:', err.message);
-  }
-}
-
-// Set up display media handler for specific window capture
-// NOTE: This is currently disabled in favor of system picker
-// The system picker is more reliable for getting audio on Windows
-ipcMain.handle('setup-window-capture', async (event, sourceId) => {
-  // Don't set up a custom handler - let the system picker work
-  console.log('[Main] setup-window-capture called with:', sourceId);
-  console.log('[Main] Using system picker for actual capture (more reliable for audio)');
-  return { success: true };
-});
-
-// Clear display media handler
-ipcMain.handle('clear-window-capture', async () => {
-  try {
-    const { session } = require('electron');
-    session.defaultSession.setDisplayMediaRequestHandler(null);
-    console.log('[Main] Window capture handler cleared');
-    return { success: true };
-  } catch (error) {
-    console.error('[Main] Failed to clear window capture:', error);
-    return { success: false, error: error.message };
-  }
-});
 
 // Helper to load client config
 function loadClientConfig() {
