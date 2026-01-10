@@ -1,50 +1,34 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, clipboard, shell, desktopCapturer, session } = require('electron');
-const { autoUpdater } = require('electron-updater');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, clipboard, shell, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 // Dev mode flag - set to true to enable DevTools
 const DEV_MODE = true;
 
-// Configure auto-updater
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
-
-// Enable audio capture features for Windows WASAPI - MUST be before app.ready
-app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+// Enable audio capture features for Windows - MUST be before app.ready
+// These flags are REQUIRED for chromeMediaSource: 'desktop' to work in getUserMedia
+app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
+app.commandLine.appendSwitch('enable-features', 'DesktopCaptureAudio,WebRTCPipeWireCapturer');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
+// Allow insecure localhost for development (audio capture requires secure context)
+app.commandLine.appendSwitch('allow-insecure-localhost');
+// Disable GPU sandbox to avoid audio capture issues on some Windows systems
+app.commandLine.appendSwitch('disable-gpu-sandbox');
 
-// Set up the display media request handler on the default session
-// This MUST be done in the 'ready' event, before creating windows
-app.on('ready', () => {
-  console.log('[Main] Setting up display media request handler for loopback audio...');
+// NOTE: We use desktopCapturer + getUserMedia with chromeMediaSource: 'desktop'
+// This is the standard Electron approach for system audio capture (used by Discord, OBS, etc.)
+// getDisplayMedia does NOT work in Electron - it returns 'Not supported'
 
-  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    console.log('[Main] Display media requested - providing loopback audio');
-
-    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-      console.log('[Main] Got', sources.length, 'screen source(s)');
-
-      if (sources.length > 0) {
-        // Grant access to first screen with loopback audio
-        // 'loopback' is the official Electron way to capture system audio on Windows
-        callback({
-          video: sources[0],
-          audio: 'loopback'
-        });
-        console.log('[Main] ✅ Granted loopback audio access for source:', sources[0].name);
-      } else {
-        console.error('[Main] ❌ No screen sources found');
-        callback({});
-      }
-    }).catch(err => {
-      console.error('[Main] ❌ Error getting sources:', err);
-      callback({});
-    });
-  });
-
-  console.log('[Main] ✅ Display media request handler configured');
-});
+// Auto-updater - lazy load to avoid accessing app before ready
+let autoUpdater = null;
+function getAutoUpdater() {
+  if (!autoUpdater) {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+  }
+  return autoUpdater;
+}
 
 let mainWindow;
 let tray;
@@ -197,6 +181,10 @@ function createWindow() {
 
   // Create system tray icon
   createTray();
+
+  // NOTE: Do NOT call clearDisplayMediaHandler() here!
+  // electron-audio-loopback sets up its handler in enableLoopbackAudio IPC
+  // and we must not clear it or system audio capture will fail
 }
 
 function createTray() {
@@ -408,17 +396,25 @@ ipcMain.handle('open-external', (event, url) => {
 });
 
 // Desktop capturer for system audio (customer voice)
+// Returns windows and screens with thumbnails for the dialer picker
 ipcMain.handle('get-desktop-sources', async () => {
   try {
     const sources = await desktopCapturer.getSources({
-      types: ['screen', 'window'],
-      fetchWindowIcons: false
+      types: ['window', 'screen'],
+      thumbnailSize: { width: 150, height: 100 },
+      fetchWindowIcons: true
     });
-    return sources.map(source => ({
-      id: source.id,
-      name: source.name,
-      display_id: source.display_id
-    }));
+
+    // Filter out empty/system windows and return useful info
+    return sources
+      .filter(source => source.name && source.name.trim() !== '')
+      .map(source => ({
+        id: source.id,
+        name: source.name,
+        display_id: source.display_id,
+        thumbnail: source.thumbnail?.toDataURL() || null,
+        appIcon: source.appIcon?.toDataURL() || null
+      }));
   } catch (e) {
     console.error('Failed to get desktop sources:', e);
     return [];
@@ -448,6 +444,46 @@ ipcMain.handle('get-system-audio-source', async () => {
 // NOTE: electron-audio-loopback's initMain() automatically registers
 // 'enable-loopback-audio' and 'disable-loopback-audio' IPC handlers.
 // Do NOT manually register them here or you'll get duplicate handler errors.
+
+// Clear any display media handler on startup to ensure system picker works
+// This is called from createWindow after mainWindow is ready
+// IMPORTANT: electron-audio-loopback or other libs may set a handler that intercepts getDisplayMedia
+function clearDisplayMediaHandler() {
+  try {
+    const { session } = require('electron');
+    // Set handler to null to ensure the native Windows picker appears
+    session.defaultSession.setDisplayMediaRequestHandler(null);
+    console.log('[Main] ═══════════════════════════════════════════════════');
+    console.log('[Main] Display media handler set to NULL');
+    console.log('[Main] Windows system picker will now be used for getDisplayMedia');
+    console.log('[Main] ═══════════════════════════════════════════════════');
+  } catch (err) {
+    console.warn('[Main] Could not clear display media handler:', err.message);
+  }
+}
+
+// Set up display media handler for specific window capture
+// NOTE: This is currently disabled in favor of system picker
+// The system picker is more reliable for getting audio on Windows
+ipcMain.handle('setup-window-capture', async (event, sourceId) => {
+  // Don't set up a custom handler - let the system picker work
+  console.log('[Main] setup-window-capture called with:', sourceId);
+  console.log('[Main] Using system picker for actual capture (more reliable for audio)');
+  return { success: true };
+});
+
+// Clear display media handler
+ipcMain.handle('clear-window-capture', async () => {
+  try {
+    const { session } = require('electron');
+    session.defaultSession.setDisplayMediaRequestHandler(null);
+    console.log('[Main] Window capture handler cleared');
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] Failed to clear window capture:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 // Helper to load client config
 function loadClientConfig() {
@@ -487,10 +523,69 @@ app.on('before-quit', () => {
 // ============================================
 
 function setupAutoUpdater() {
+  // Lazy-load electron-updater to avoid accessing app before ready
+  const updater = getAutoUpdater();
+
+  // Register event handlers
+  updater.on('checking-for-update', () => {
+    console.log('[AutoUpdater] Checking for update...');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', { status: 'checking' });
+    }
+  });
+
+  updater.on('update-available', (info) => {
+    console.log('[AutoUpdater] Update available:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'available',
+        version: info.version
+      });
+    }
+  });
+
+  updater.on('update-not-available', (info) => {
+    console.log('[AutoUpdater] Already up to date:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', { status: 'up-to-date' });
+    }
+  });
+
+  updater.on('download-progress', (progress) => {
+    console.log(`[AutoUpdater] Download progress: ${Math.round(progress.percent)}%`);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'downloading',
+        percent: Math.round(progress.percent)
+      });
+    }
+  });
+
+  updater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdater] Update downloaded:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'ready',
+        version: info.version
+      });
+    }
+    // The update will install on next app quit (autoInstallOnAppQuit = true)
+  });
+
+  updater.on('error', (err) => {
+    console.error('[AutoUpdater] Error:', err.message);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'error',
+        message: err.message
+      });
+    }
+  });
+
   // Check for updates on startup (with delay to not slow launch)
   setTimeout(() => {
     console.log('[AutoUpdater] Checking for updates...');
-    autoUpdater.checkForUpdates().catch(err => {
+    updater.checkForUpdates().catch(err => {
       console.log('[AutoUpdater] Update check failed:', err.message);
     });
   }, 5000);
@@ -498,72 +593,17 @@ function setupAutoUpdater() {
   // Check for updates every 30 minutes
   setInterval(() => {
     console.log('[AutoUpdater] Periodic update check...');
-    autoUpdater.checkForUpdates().catch(err => {
+    updater.checkForUpdates().catch(err => {
       console.log('[AutoUpdater] Update check failed:', err.message);
     });
   }, 30 * 60 * 1000);
 }
 
-// Auto-updater event handlers
-autoUpdater.on('checking-for-update', () => {
-  console.log('[AutoUpdater] Checking for update...');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { status: 'checking' });
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('[AutoUpdater] Update available:', info.version);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', {
-      status: 'available',
-      version: info.version
-    });
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  console.log('[AutoUpdater] Already up to date:', info.version);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { status: 'up-to-date' });
-  }
-});
-
-autoUpdater.on('download-progress', (progress) => {
-  console.log(`[AutoUpdater] Download progress: ${Math.round(progress.percent)}%`);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', {
-      status: 'downloading',
-      percent: Math.round(progress.percent)
-    });
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('[AutoUpdater] Update downloaded:', info.version);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', {
-      status: 'ready',
-      version: info.version
-    });
-  }
-  // The update will install on next app quit (autoInstallOnAppQuit = true)
-});
-
-autoUpdater.on('error', (err) => {
-  console.error('[AutoUpdater] Error:', err.message);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', {
-      status: 'error',
-      message: err.message
-    });
-  }
-});
-
 // IPC handler to manually trigger update check
 ipcMain.handle('check-for-updates', async () => {
   try {
-    const result = await autoUpdater.checkForUpdates();
+    const updater = getAutoUpdater();
+    const result = await updater.checkForUpdates();
     return { success: true, version: result?.updateInfo?.version };
   } catch (err) {
     return { success: false, error: err.message };

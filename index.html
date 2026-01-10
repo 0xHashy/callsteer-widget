@@ -74,6 +74,135 @@
     </div>
   </div>
 
+  <!-- Setup Wizard (Audio Setup) -->
+  <div class="widget" id="setup-wizard" style="display: none;">
+    <!-- Header -->
+    <div class="header" id="setup-drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="setup-close-btn"></button>
+        <button class="control-btn minimize" id="setup-minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
+      </div>
+    </div>
+
+    <!-- Step 1: Microphone Selection -->
+    <div class="setup-content" id="setup-step-1">
+      <div class="setup-step-indicator">
+        <span class="step-badge">Step 1 of 2</span>
+      </div>
+
+      <h2 class="setup-title">Select Your Microphone</h2>
+      <p class="setup-subtitle">Choose the mic you use for calls</p>
+
+      <!-- Microphone Selection -->
+      <div class="setup-section">
+        <div class="setup-section-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          </svg>
+          Your Microphone
+        </div>
+        <select id="setup-mic-select" class="setup-select">
+          <option value="">Loading microphones...</option>
+        </select>
+      </div>
+
+      <!-- Mic Test Waveform -->
+      <div class="mic-test-section" id="mic-test-section" style="display: none;">
+        <div class="mic-test-label">Speak to test your mic</div>
+        <div class="mic-waveform" id="mic-waveform">
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+        </div>
+        <div class="mic-test-status" id="mic-test-status">Waiting for audio...</div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="setup-back-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-primary" id="setup-next-btn" disabled>
+          Next
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Instructions Screen -->
+    <div class="setup-content" id="setup-step-2" style="display: none;">
+      <div class="setup-step-indicator">
+        <span class="step-badge">Step 2 of 2</span>
+      </div>
+
+      <div class="setup-instructions">
+        <div class="instructions-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z"/>
+            <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
+          </svg>
+        </div>
+        <h2 class="setup-title">You're All Set!</h2>
+        <p class="setup-subtitle">CallSteer will listen to your calls and provide real-time coaching.</p>
+
+        <div class="instructions-steps">
+          <div class="instruction-step">
+            <span class="instruction-number">1</span>
+            <span>Click the <strong>power button</strong> to start listening</span>
+          </div>
+          <div class="instruction-step">
+            <span class="instruction-number">2</span>
+            <span>Make calls in Zoom, Dialpad, Teams, or any app</span>
+          </div>
+          <div class="instruction-step">
+            <span class="instruction-number">3</span>
+            <span>Get instant AI coaching when objections arise</span>
+          </div>
+        </div>
+
+        <div class="privacy-note">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Audio is only captured when the power is ON. Turn it OFF between calls.</span>
+        </div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="setup-step2-back-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-primary" id="setup-done-btn">
+          Start Coaching
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Widget -->
   <div class="widget" id="main-widget" style="display: none;">
     <!-- Header -->
@@ -86,30 +215,96 @@
         <span class="status-indicator" id="header-status"></span>
         <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
       </div>
-      <button class="signout-btn" id="signout-btn" title="Sign Out">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
+      <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Light/Dark Mode">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="sun-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="moon-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
+      <div class="settings-menu-container">
+        <button class="header-icon-btn" id="settings-btn" title="Settings">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <!-- Settings Dropdown Menu -->
+        <div class="settings-dropdown" id="settings-dropdown">
+          <div class="settings-user-info">
+            <span class="settings-user-name" id="settings-rep-name">Rep Name</span>
+            <span class="settings-company" id="settings-company-name">Company</span>
+          </div>
+          <div class="settings-divider"></div>
+          <button class="settings-menu-item" id="menu-audio-setup">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            </svg>
+            Microphone Setup
+          </button>
+          <button class="settings-menu-item" id="menu-change-call-app">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8"/>
+              <path d="M12 17v4"/>
+            </svg>
+            Change Call App
+          </button>
+          <button class="settings-menu-item signout" id="menu-signout">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content -->
     <div class="content">
-      <!-- Device Settings -->
-      <div class="section device-section">
-        <div class="device-row">
-          <label class="device-label">Microphone</label>
-          <select id="mic-select" class="device-select">
-            <option value="">Select mic...</option>
-          </select>
+      <!-- Audio Config Display (clickable to open setup wizard) -->
+      <div class="section audio-config-section">
+        <div class="audio-config-row clickable" id="mic-config-row" title="Click to change microphone">
+          <div class="audio-config-icon mic">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div class="audio-config-info">
+            <span class="audio-config-label">Your Mic</span>
+            <span class="audio-config-value" id="mic-display">Not configured</span>
+          </div>
+          <span class="audio-config-change">Change</span>
         </div>
-        <div class="device-row">
-          <label class="device-label">Speaker</label>
-          <select id="speaker-select" class="device-select">
-            <option value="">Select speaker...</option>
-          </select>
+        <!-- Hidden select for mic (still needed for getUserMedia) -->
+        <select id="mic-select" class="device-select" style="display: none;">
+          <option value="">Select mic...</option>
+        </select>
+
+        <!-- Call App Display -->
+        <div class="audio-config-row clickable" id="call-app-config-row" title="Click to change call app">
+          <div class="audio-config-icon call-app">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8"/>
+              <path d="M12 17v4"/>
+            </svg>
+          </div>
+          <div class="audio-config-info">
+            <span class="audio-config-label">Call App</span>
+            <span class="audio-config-value" id="call-app-display">Not selected</span>
+          </div>
+          <span class="audio-config-change">Change</span>
         </div>
       </div>
 
@@ -133,7 +328,8 @@
         <div class="wave"></div>
         <div class="wave"></div>
         <div class="wave"></div>
-        <span class="listening-text">Listening...</span>
+        <span class="listening-text">Listening</span>
+        <span class="listening-reminder">Turn off between calls</span>
       </div>
 
       <!-- Tab Navigation -->
@@ -321,6 +517,74 @@
 
   <!-- Nudge Popup Container (for mini mode) -->
   <div id="nudge-popup-container"></div>
+
+  <!-- Call App Picker Modal -->
+  <div class="picker-overlay" id="call-app-picker" style="display: none;">
+    <div class="picker-modal">
+      <div class="picker-header">
+        <h3 class="picker-title">Select Your Call App</h3>
+        <p class="picker-subtitle">Choose the app you're using for this call</p>
+      </div>
+
+      <div class="picker-content">
+        <!-- Detected Call Apps -->
+        <div class="picker-section" id="picker-call-apps">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Detected Call Apps
+          </div>
+          <div class="picker-grid" id="picker-call-apps-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Browser Tabs & Other Apps -->
+        <div class="picker-section" id="picker-other-windows">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+            </svg>
+            Browser Tabs & Other Apps
+          </div>
+          <div class="picker-grid" id="picker-other-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- System Audio Option -->
+        <div class="picker-section">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            Capture All Audio
+          </div>
+          <div class="picker-grid">
+            <div class="picker-item" data-source-id="system-audio" data-source-name="All System Audio">
+              <div class="picker-item-icon system">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="4" y="4" width="16" height="12" rx="2"/>
+                  <path d="M8 20h8"/>
+                  <path d="M12 16v4"/>
+                </svg>
+              </div>
+              <span class="picker-item-name">All System Audio</span>
+              <span class="picker-item-hint">Captures audio from all apps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="picker-footer">
+        <button class="btn btn-secondary" id="picker-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>

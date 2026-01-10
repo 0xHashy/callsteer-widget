@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
   disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
 
+  // Window-specific audio capture
+  setupWindowCapture: (sourceId) => ipcRenderer.invoke('setup-window-capture', sourceId),
+  clearWindowCapture: () => ipcRenderer.invoke('clear-window-capture'),
+
   // Logout event listener
   onLogoutRequest: (callback) => ipcRenderer.on('logout-request', () => callback()),
 

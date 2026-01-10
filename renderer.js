@@ -15,9 +15,20 @@ let deepgramMicSocket = null;   // Deepgram WebSocket for mic
 let deepgramSystemSocket = null; // Deepgram WebSocket for system audio
 let isCapturingAudio = false;
 
+// ==================== PERSISTENT SYSTEM AUDIO STREAM ====================
+// Windows picker only shows ONCE per session - stream stays open in background
+// Subsequent power toggles mute/unmute the stream instead of closing it
+let persistentSystemStream = null;  // The actual MediaStream from getDisplayMedia
+let systemStreamMuted = false;      // Track mute state
+
 // ==================== DEVICE SELECTION STATE ====================
 let selectedMicId = null;
 let selectedSpeakerId = null;
+
+// ==================== AUDIO SOURCE STATE ====================
+// User-selected call app (for UX clarity - audio capture uses all system audio)
+let selectedDialerSource = null;  // { id: string, name: string, thumbnail?: string }
+let pickerResolve = null;         // Promise resolver for picker modal
 
 // ==================== POPUP STATE ====================
 let popupDismissTimer = null;
@@ -38,10 +49,14 @@ let repTranscriptBuffer = [];        // Array of {text, timestamp} chunks
 const TRANSCRIPT_BUFFER_WINDOW_MS = 30000; // Keep last 30 seconds of speech
 
 // ==================== AUTO-TIMEOUT STATE ====================
-let lastAudioActivityTime = 0;       // Timestamp of last audio activity
+// Tracks CUSTOMER audio only (system audio stream) - rep talking doesn't reset timer
+// This ensures: left on at desk → times out, on actual call → stays on
+let lastCustomerAudioTime = 0;       // Timestamp of last customer audio detected
 let autoTimeoutTimer = null;         // Timer for auto-timeout check
-const AUTO_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of dead air = auto power off
-const AUTO_TIMEOUT_CHECK_MS = 30000; // Check every 30 seconds
+let silenceWarningShown = false;     // Track if 5 min warning was shown
+const SILENCE_WARNING_MS = 5 * 60 * 1000; // 5 minutes = show warning
+const AUTO_TIMEOUT_MS = 10 * 60 * 1000;   // 10 minutes = auto power off
+const AUTO_TIMEOUT_CHECK_MS = 30000;      // Check every 30 seconds
 
 // ==================== GLOBAL ERROR HANDLERS ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -85,15 +100,69 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 3000;
 
+// ==================== THEME MANAGEMENT ====================
+
+/**
+ * Load saved theme from localStorage and apply it
+ */
+function loadTheme() {
+  try {
+    const savedTheme = localStorage.getItem('callsteer_widget_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    console.log('[Theme] Loaded theme:', savedTheme);
+  } catch (e) {
+    console.error('[Theme] Failed to load theme:', e);
+  }
+}
+
+/**
+ * Toggle between light and dark mode
+ */
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+  document.documentElement.setAttribute('data-theme', newTheme);
+
+  try {
+    localStorage.setItem('callsteer_widget_theme', newTheme);
+    console.log('[Theme] Switched to:', newTheme);
+  } catch (e) {
+    console.error('[Theme] Failed to save theme:', e);
+  }
+}
+
+/**
+ * Setup theme toggle button listener
+ */
+function setupThemeToggle() {
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  themeToggleBtn?.addEventListener('click', toggleTheme);
+}
+
+// Load theme immediately before DOM content loaded to prevent flash
+loadTheme();
+
 // Initialize
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 async function initializeApp() {
+  // Clear any stale persistent stream from previous session
+  // This ensures Windows picker ALWAYS appears on first power click after app start
+  persistentSystemStream = null;
+  systemStreamMuted = false;
+  console.log('[Init] Cleared persistentSystemStream - picker will show on first power click');
+
   setupWindowControls();
   setupLoginHandlers();
+  setupThemeToggle();
+  setupSetupWizard();
 
   // Load saved rep name if exists (for returning users)
   repName = localStorage.getItem('callsteer_rep_name') || null;
+
+  // Load saved mic selection
+  const savedMicId = localStorage.getItem('callsteer_selected_mic');
 
   // Check for stored login
   if (window.electronAPI) {
@@ -106,7 +175,15 @@ async function initializeApp() {
     // Generate rep ID based on name
     repId = generateRepId(repName);
     console.log('[Auth] Rep ID:', repId, 'Name:', repName);
-    showMainWidget();
+
+    // Check if mic is configured
+    if (savedMicId) {
+      selectedMicId = savedMicId;
+      showMainWidget();
+    } else {
+      // Need to set up mic first
+      showSetupWizard();
+    }
   } else {
     showLoginScreen();
   }
@@ -168,14 +245,18 @@ function generateRepId(name) {
 // ==================== SCREEN NAVIGATION ====================
 
 function showLoginScreen() {
+  console.log('[UI] Showing login screen...');
   document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('setup-wizard').style.display = 'none';
   document.getElementById('main-widget').style.display = 'none';
   stopPolling();
   disconnectNudgeWebSocket();
 }
 
 function showMainWidget() {
+  console.log('[UI] Showing main widget...');
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('setup-wizard').style.display = 'none';
   document.getElementById('main-widget').style.display = 'flex';
 
   // Clear old nudges from previous sessions - start fresh
@@ -202,13 +283,44 @@ function showMainWidget() {
   // startPolling() is now called in toggleListening() when turning ON
   updateConnectionStatus('connected', 'Connected');
 
-  // Initialize device selection
+  // Initialize device selection (hidden select for mic)
   loadSavedDevices();
   populateDeviceDropdowns();
+
+  // Update the audio config display
+  updateAudioConfigDisplay();
 
   // Load rebuttal tracking stats
   loadRebuttalStats();
   updateStats();
+}
+
+/**
+ * Update the audio config display with current mic info
+ * (Call app is selected via Windows picker when listening starts)
+ */
+function updateAudioConfigDisplay() {
+  const micDisplay = document.getElementById('mic-display');
+
+  // Update mic display
+  if (micDisplay) {
+    const micSelect = document.getElementById('mic-select');
+    if (micSelect && micSelect.selectedIndex > 0) {
+      const selectedOption = micSelect.options[micSelect.selectedIndex];
+      // Truncate long names
+      const micName = selectedOption.text.length > 25
+        ? selectedOption.text.substring(0, 22) + '...'
+        : selectedOption.text;
+      micDisplay.textContent = micName;
+      micDisplay.classList.remove('not-set');
+    } else {
+      micDisplay.textContent = 'Not configured';
+      micDisplay.classList.add('not-set');
+    }
+  }
+
+  // Update call app display
+  updateCallAppDisplay();
 }
 
 // ==================== WINDOW CONTROLS ====================
@@ -230,14 +342,103 @@ function setupWindowControls() {
     window.electronAPI?.minimizeWindow();
   });
 
-  // Sign out button
-  document.getElementById('signout-btn')?.addEventListener('click', handleSignOut);
+  // Settings button - toggles dropdown menu
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsDropdown = document.getElementById('settings-dropdown');
+
+  settingsBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('[Settings] Toggle dropdown');
+    settingsDropdown?.classList.toggle('show');
+    settingsBtn?.classList.toggle('active');
+    updateSettingsDropdownInfo();
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.settings-menu-container')) {
+      settingsDropdown?.classList.remove('show');
+      settingsBtn?.classList.remove('active');
+    }
+  });
+
+  // Audio Setup menu item (microphone only)
+  document.getElementById('menu-audio-setup')?.addEventListener('click', () => {
+    console.log('[Settings] Opening microphone setup wizard...');
+    settingsDropdown?.classList.remove('show');
+    settingsBtn?.classList.remove('active');
+    showSetupWizard();
+  });
+
+  // Change Call App menu item - shows picker to select different call app
+  document.getElementById('menu-change-call-app')?.addEventListener('click', async () => {
+    console.log('[Settings] Change Call App clicked...');
+    settingsDropdown?.classList.remove('show');
+    settingsBtn?.classList.remove('active');
+
+    // Show the picker
+    const selected = await showCallAppPicker();
+    if (selected) {
+      selectedDialerSource = selected;
+      updateCallAppDisplay();
+      showToast(`Call app changed to ${selected.name}`, 'success');
+    }
+  });
+
+  // Call app config row click handler
+  document.getElementById('call-app-config-row')?.addEventListener('click', async () => {
+    const selected = await showCallAppPicker();
+    if (selected) {
+      selectedDialerSource = selected;
+      updateCallAppDisplay();
+    }
+  });
+
+  // Picker cancel button
+  document.getElementById('picker-cancel-btn')?.addEventListener('click', () => {
+    hideCallAppPicker();
+  });
+
+  // Sign Out menu item
+  document.getElementById('menu-signout')?.addEventListener('click', () => {
+    settingsDropdown?.classList.remove('show');
+    settingsBtn?.classList.remove('active');
+    handleSignOut();
+  });
+
+  // Clickable audio config rows - open setup wizard
+  document.getElementById('mic-config-row')?.addEventListener('click', () => {
+    console.log('[Audio Config] Mic row clicked, opening wizard...');
+    showSetupWizard();
+  });
+}
+
+/**
+ * Update the settings dropdown with current user info
+ */
+function updateSettingsDropdownInfo() {
+  const nameEl = document.getElementById('settings-rep-name');
+  const companyEl = document.getElementById('settings-company-name');
+
+  if (nameEl) {
+    nameEl.textContent = repName || 'Not signed in';
+  }
+  if (companyEl) {
+    companyEl.textContent = clientInfo?.company_name || 'No company';
+  }
 }
 
 async function handleSignOut() {
   // Stop listening if active
   if (isListening) {
     stopListening();
+  }
+
+  // Clear persistent system audio stream (new user starts fresh)
+  if (persistentSystemStream) {
+    persistentSystemStream.getTracks().forEach(track => track.stop());
+    persistentSystemStream = null;
+    console.log('[Auth] Cleared persistent system stream');
   }
 
   // Clear stored credentials
@@ -252,8 +453,12 @@ async function handleSignOut() {
   repName = null;
   localStorage.removeItem('callsteer_rep_name');
 
+  // Clear dialer selection on sign out (new user might have different dialer)
+  clearDialerSelection();
+
   // Show login screen
   document.getElementById('main-widget').style.display = 'none';
+  document.getElementById('setup-wizard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('rep-name-input').value = '';
   document.getElementById('client-code-input').value = '';
@@ -268,8 +473,7 @@ async function handleSignOut() {
 function loadSavedDevices() {
   try {
     selectedMicId = localStorage.getItem('callsteer_mic_id');
-    selectedSpeakerId = localStorage.getItem('callsteer_speaker_id');
-    console.log('[Devices] Loaded saved devices:', { mic: selectedMicId, speaker: selectedSpeakerId });
+    console.log('[Devices] Loaded saved mic:', selectedMicId);
   } catch (e) {
     console.error('[Devices] Failed to load saved devices:', e);
   }
@@ -280,10 +484,7 @@ function saveSelectedDevices() {
     if (selectedMicId) {
       localStorage.setItem('callsteer_mic_id', selectedMicId);
     }
-    if (selectedSpeakerId) {
-      localStorage.setItem('callsteer_speaker_id', selectedSpeakerId);
-    }
-    console.log('[Devices] Saved devices:', { mic: selectedMicId, speaker: selectedSpeakerId });
+    console.log('[Devices] Saved mic:', selectedMicId);
   } catch (e) {
     console.error('[Devices] Failed to save devices:', e);
   }
@@ -317,40 +518,19 @@ async function populateDeviceDropdowns() {
       micSelect.addEventListener('change', (e) => {
         selectedMicId = e.target.value;
         saveSelectedDevices();
+        updateAudioConfigDisplay();
         console.log('[Devices] Selected mic:', selectedMicId);
       });
     }
 
-    // Populate speaker dropdown
-    const speakerSelect = document.getElementById('speaker-select');
-    if (speakerSelect) {
-      speakerSelect.innerHTML = '<option value="">Select speaker...</option>';
-      audioOutputs.forEach(device => {
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        option.textContent = device.label || `Speaker ${device.deviceId.substring(0, 8)}`;
-        if (device.deviceId === selectedSpeakerId) {
-          option.selected = true;
-        }
-        speakerSelect.appendChild(option);
-      });
-
-      speakerSelect.addEventListener('change', (e) => {
-        selectedSpeakerId = e.target.value;
-        saveSelectedDevices();
-        console.log('[Devices] Selected speaker:', selectedSpeakerId);
-      });
-    }
-
-    // Auto-select first devices if none saved
+    // Auto-select first mic if none saved
     if (!selectedMicId && audioInputs.length > 0) {
       selectedMicId = audioInputs[0].deviceId;
       if (micSelect) micSelect.value = selectedMicId;
     }
-    if (!selectedSpeakerId && audioOutputs.length > 0) {
-      selectedSpeakerId = audioOutputs[0].deviceId;
-      if (speakerSelect) speakerSelect.value = selectedSpeakerId;
-    }
+
+    // Update the display
+    updateAudioConfigDisplay();
 
   } catch (error) {
     console.error('[Devices] Failed to enumerate devices:', error);
@@ -449,7 +629,13 @@ async function handleLogin() {
       await window.electronAPI.saveClientInfo(clientInfo);
     }
 
-    showMainWidget();
+    // Check if dialer is already configured
+    if (selectedDialerSource) {
+      showMainWidget();
+    } else {
+      // Need to set up dialer first
+      showSetupWizard();
+    }
 
   } catch (error) {
     showLoginError(error.message);
@@ -486,6 +672,288 @@ async function handleLogout() {
   showLoginScreen();
 }
 
+// ==================== SETUP WIZARD (MIC SELECTION + INSTRUCTIONS) ====================
+
+function setupSetupWizard() {
+  console.log('[Setup] Setting up wizard handlers...');
+
+  // Setup wizard window controls
+  document.getElementById('setup-close-btn')?.addEventListener('click', () => {
+    if (window.electronAPI) window.electronAPI.closeWindow();
+  });
+  document.getElementById('setup-minimize-btn')?.addEventListener('click', () => {
+    if (window.electronAPI) window.electronAPI.minimizeWindow();
+  });
+
+  // Back button goes to login
+  document.getElementById('setup-back-btn')?.addEventListener('click', () => {
+    console.log('[Setup] Back button clicked');
+    showLoginScreen();
+  });
+
+  // Next button goes to step 2
+  const nextBtn = document.getElementById('setup-next-btn');
+  console.log('[Setup] Next button element:', nextBtn);
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', handleSetupNext);
+    console.log('[Setup] Next button handler attached');
+  } else {
+    console.error('[Setup] Next button not found!');
+  }
+
+  // Step 2 back button
+  const step2BackBtn = document.getElementById('setup-step2-back-btn');
+  if (step2BackBtn) {
+    step2BackBtn.addEventListener('click', () => {
+      showSetupStep(1);
+    });
+  }
+
+  // Done button finishes setup
+  const doneBtn = document.getElementById('setup-done-btn');
+  if (doneBtn) {
+    doneBtn.addEventListener('click', handleSetupDone);
+  }
+}
+
+// Mic test stream and analyzer
+let micTestStream = null;
+let micTestAnalyzer = null;
+let micTestAnimationFrame = null;
+
+function handleSetupNext() {
+  console.log('[Setup] Next button clicked - going to step 2');
+  console.log('[Setup] selectedMicId:', selectedMicId);
+
+  if (!selectedMicId) {
+    console.warn('[Setup] No mic selected!');
+    showToast('Please select a microphone', 'warning');
+    return;
+  }
+
+  // Stop mic test before advancing
+  stopMicTest();
+
+  // Save mic selection
+  const mainMicSelect = document.getElementById('mic-select');
+  if (mainMicSelect) {
+    mainMicSelect.value = selectedMicId;
+  }
+  saveSelectedDevices();
+
+  // Show step 2
+  showSetupStep(2);
+}
+
+function handleSetupDone() {
+  console.log('[Setup] Done button clicked - completing setup');
+  showMainWidget();
+}
+
+function showSetupStep(step) {
+  const step1 = document.getElementById('setup-step-1');
+  const step2 = document.getElementById('setup-step-2');
+
+  if (step === 1) {
+    step1.style.display = 'flex';
+    step2.style.display = 'none';
+    // Restart mic test
+    startMicTest();
+  } else {
+    step1.style.display = 'none';
+    step2.style.display = 'flex';
+  }
+}
+
+function showSetupWizard() {
+  console.log('[UI] Showing setup wizard...');
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-widget').style.display = 'none';
+  document.getElementById('setup-wizard').style.display = 'flex';
+
+  // Show step 1
+  showSetupStep(1);
+
+  // Reset next button to disabled state
+  const nextBtn = document.getElementById('setup-next-btn');
+  if (nextBtn) {
+    nextBtn.disabled = true;
+  }
+
+  // Load microphone options
+  loadSetupMicOptions();
+
+  // Update done button state (mic only now - Windows picker handles call app)
+  updateSetupDoneButton();
+}
+
+// Start mic test visualization
+async function startMicTest() {
+  const micTestSection = document.getElementById('mic-test-section');
+  const micTestStatus = document.getElementById('mic-test-status');
+
+  if (!selectedMicId || !micTestSection) return;
+
+  try {
+    // Stop any existing test
+    stopMicTest();
+
+    // Get mic stream
+    micTestStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: selectedMicId } }
+    });
+
+    // Create audio context and analyzer
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(micTestStream);
+    micTestAnalyzer = audioContext.createAnalyser();
+    micTestAnalyzer.fftSize = 32;
+    source.connect(micTestAnalyzer);
+
+    // Show the test section
+    micTestSection.style.display = 'block';
+    if (micTestStatus) micTestStatus.textContent = 'Speak to test your mic...';
+
+    // Start visualization
+    visualizeMicTest();
+  } catch (error) {
+    console.error('[Setup] Mic test failed:', error);
+    if (micTestSection) micTestSection.style.display = 'none';
+  }
+}
+
+function visualizeMicTest() {
+  if (!micTestAnalyzer) return;
+
+  const bars = document.querySelectorAll('#mic-waveform .waveform-bar');
+  const dataArray = new Uint8Array(micTestAnalyzer.frequencyBinCount);
+  const micTestSection = document.getElementById('mic-test-section');
+  const micTestStatus = document.getElementById('mic-test-status');
+
+  function draw() {
+    micTestAnimationFrame = requestAnimationFrame(draw);
+    micTestAnalyzer.getByteFrequencyData(dataArray);
+
+    // Calculate average volume
+    const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+    // Update bars
+    bars.forEach((bar, i) => {
+      const value = dataArray[i] || 0;
+      const height = Math.max(8, (value / 255) * 36);
+      bar.style.height = `${height}px`;
+    });
+
+    // Update status based on audio level
+    if (average > 30) {
+      micTestSection?.classList.add('active');
+      if (micTestStatus) {
+        micTestStatus.textContent = 'Mic is working!';
+        micTestStatus.classList.add('success');
+      }
+    } else {
+      micTestSection?.classList.remove('active');
+      if (micTestStatus && !micTestStatus.classList.contains('success')) {
+        micTestStatus.textContent = 'Speak to test your mic...';
+      }
+    }
+  }
+
+  draw();
+}
+
+function stopMicTest() {
+  if (micTestAnimationFrame) {
+    cancelAnimationFrame(micTestAnimationFrame);
+    micTestAnimationFrame = null;
+  }
+  if (micTestStream) {
+    micTestStream.getTracks().forEach(track => track.stop());
+    micTestStream = null;
+  }
+  micTestAnalyzer = null;
+}
+
+/**
+ * Load microphone options in setup wizard
+ */
+async function loadSetupMicOptions() {
+  const micSelect = document.getElementById('setup-mic-select');
+  if (!micSelect) return;
+
+  try {
+    // Request permissions first to get labeled devices
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+    console.log('[Setup] Found microphones:', audioInputs.length);
+
+    micSelect.innerHTML = '<option value="">Select microphone...</option>';
+    audioInputs.forEach(device => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = device.label || `Microphone ${device.deviceId.substring(0, 8)}`;
+      if (device.deviceId === selectedMicId) {
+        option.selected = true;
+      }
+      micSelect.appendChild(option);
+    });
+
+    // Handle mic selection change
+    micSelect.addEventListener('change', (e) => {
+      selectedMicId = e.target.value;
+      saveSelectedDevices();
+      updateSetupDoneButton();
+      console.log('[Setup] Selected mic:', selectedMicId);
+      // Start mic test with new selection
+      if (selectedMicId) {
+        startMicTest();
+      }
+    });
+
+    // Auto-select first mic if none saved
+    if (!selectedMicId && audioInputs.length > 0) {
+      selectedMicId = audioInputs[0].deviceId;
+      micSelect.value = selectedMicId;
+      saveSelectedDevices();
+    }
+
+    updateSetupDoneButton();
+
+    // Start mic test if a mic is already selected
+    if (selectedMicId) {
+      startMicTest();
+    }
+
+  } catch (error) {
+    console.error('[Setup] Failed to load microphones:', error);
+    micSelect.innerHTML = '<option value="">Microphone access denied</option>';
+  }
+}
+
+/**
+ * Update the Done button state based on whether mic is selected
+ * (Windows picker handles call app selection when listening starts)
+ */
+function updateSetupDoneButton() {
+  const nextBtn = document.getElementById('setup-next-btn');
+  if (!nextBtn) return;
+
+  const hasMic = !!selectedMicId;
+  nextBtn.disabled = !hasMic;
+  console.log('[Setup] Done button state:', { hasMic, disabled: nextBtn.disabled });
+}
+
+// Helper function for escaping HTML
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ==================== TOGGLE & LISTENING ====================
 
 function setupToggle() {
@@ -503,6 +971,19 @@ async function toggleListening() {
   const toggleStatus = document.getElementById('toggle-status');
   const toggleHint = document.getElementById('toggle-hint');
   const listeningAnimation = document.getElementById('listening-animation');
+
+  // If turning ON and no call app selected, show picker first
+  if (!isListening && !selectedDialerSource) {
+    console.log('[Toggle] No call app selected, showing picker...');
+    const selected = await showCallAppPicker();
+    if (!selected) {
+      console.log('[Toggle] Picker cancelled, not turning on');
+      return; // User cancelled, don't turn on
+    }
+    selectedDialerSource = selected;
+    updateCallAppDisplay();
+    console.log('[Toggle] Call app selected:', selected.name);
+  }
 
   if (isListening) {
     // TURN OFF
@@ -589,37 +1070,44 @@ async function toggleListening() {
 // ==================== AUTO-TIMEOUT FUNCTIONS ====================
 
 /**
- * Start checking for dead air - auto power off after 5 minutes of no audio
+ * Start checking for customer audio silence
+ * Only CUSTOMER audio (system stream) resets the timer - rep talking doesn't count
+ * This ensures: left on at desk talking to coworker → times out
+ *               on actual call with customer → stays on
  */
 function startAutoTimeoutCheck() {
   stopAutoTimeoutCheck(); // Clear any existing timer
 
-  // Initialize last activity time
-  lastAudioActivityTime = Date.now();
+  // Initialize last customer audio time and reset warning flag
+  lastCustomerAudioTime = Date.now();
+  silenceWarningShown = false;
 
-  // Check periodically for dead air
+  // Check periodically for customer audio silence
   autoTimeoutTimer = setInterval(() => {
     if (!isListening) {
       stopAutoTimeoutCheck();
       return;
     }
 
-    const timeSinceActivity = Date.now() - lastAudioActivityTime;
-    const minutesSinceActivity = Math.floor(timeSinceActivity / 60000);
+    const timeSinceCustomerAudio = Date.now() - lastCustomerAudioTime;
 
-    if (timeSinceActivity >= AUTO_TIMEOUT_MS) {
-      console.log('[AutoTimeout] 5 minutes of dead air - powering off listener');
-      showToast('Auto-powered off (no audio activity)', 'warning');
+    // Auto power off at 10 minutes of no customer audio
+    if (timeSinceCustomerAudio >= AUTO_TIMEOUT_MS) {
+      console.log('[AutoTimeout] 10 minutes without customer audio - powering off');
+      showToast('Powered off — no customer audio detected. Turn back on for your next call.', 'info');
 
       // Trigger the toggle to turn off
       toggleListening();
-    } else if (minutesSinceActivity >= 3) {
-      // Warn user at 3 minutes
-      console.log(`[AutoTimeout] ${minutesSinceActivity} minutes of inactivity`);
+    }
+    // Warning at 5 minutes of no customer audio
+    else if (timeSinceCustomerAudio >= SILENCE_WARNING_MS && !silenceWarningShown) {
+      console.log('[AutoTimeout] 5 minutes without customer audio - showing warning');
+      showToast('No customer audio detected. Still on a call?', 'warning');
+      silenceWarningShown = true;
     }
   }, AUTO_TIMEOUT_CHECK_MS);
 
-  console.log('[AutoTimeout] Started - will power off after 5 min of dead air');
+  console.log('[AutoTimeout] Started - tracking customer audio only');
 }
 
 /**
@@ -630,13 +1118,20 @@ function stopAutoTimeoutCheck() {
     clearInterval(autoTimeoutTimer);
     autoTimeoutTimer = null;
   }
+  silenceWarningShown = false;
 }
 
 /**
- * Record audio activity to reset the timeout
+ * Record CUSTOMER audio activity to reset the timeout
+ * Called only from system audio (customer) stream, NOT from mic (rep) stream
  */
-function recordAudioActivity() {
-  lastAudioActivityTime = Date.now();
+function recordCustomerAudioActivity() {
+  lastCustomerAudioTime = Date.now();
+  // Reset warning flag when customer audio detected
+  if (silenceWarningShown) {
+    silenceWarningShown = false;
+    console.log('[AutoTimeout] Customer audio detected - reset warning');
+  }
 }
 
 /**
@@ -1397,6 +1892,279 @@ function playNotificationSound() {
   } catch (e) {}
 }
 
+// ==================== CALL APP PICKER ====================
+
+// Known call app patterns for categorization
+// These patterns are designed to match NATIVE apps, not browser tabs
+// Browser tabs are detected separately by checking for browser suffix
+const CALL_APP_PATTERNS = [
+  // VoIP/Calling apps - match native app windows
+  { pattern: /^Zoom/i, name: 'Zoom', icon: 'zoom' },                    // "Zoom Meeting" etc
+  { pattern: /^Microsoft Teams/i, name: 'Teams', icon: 'teams' },       // Native Teams app
+  { pattern: /^Dialpad/i, name: 'Dialpad', icon: 'dialpad' },           // Native Dialpad
+  { pattern: /^Webex/i, name: 'Webex', icon: 'webex' },                 // Native Webex
+  { pattern: /^Slack/i, name: 'Slack', icon: 'slack' },                 // Native Slack
+  { pattern: /^Discord/i, name: 'Discord', icon: 'discord' },           // Native Discord
+  { pattern: /^RingCentral/i, name: 'RingCentral', icon: 'ringcentral' },
+  { pattern: /^Aircall/i, name: 'Aircall', icon: 'aircall' },
+  // Note: Google Meet is browser-only, will show in Browser Tabs section
+];
+
+// Windows system windows to filter out (not useful for call capture)
+const SYSTEM_WINDOW_FILTERS = [
+  /^Default IME$/i,
+  /^MSCTFIME/i,
+  /^Microsoft Text Input/i,
+  /^Program Manager$/i,
+  /^Settings$/i,
+  /^Windows Input Experience/i,
+  /^Task Switching$/i,
+  /^Start$/i,
+  /^Search$/i,
+  /^Cortana$/i,
+  /^Action Center$/i,
+  /^Notification/i,
+  /^SystemSettings/i,
+  /^ShellExperienceHost/i,
+  /^LockApp/i,
+  /^Windows Security/i,
+  /^Setup$/i,
+  /^Input Indicator/i,
+  /^IME$/i,
+  /^Desktop$/i,
+  /^$/ // Empty names
+];
+
+/**
+ * Check if a window name is a system window that should be filtered out
+ */
+function isSystemWindow(name) {
+  if (!name || name.trim() === '') return true;
+  return SYSTEM_WINDOW_FILTERS.some(filter => filter.test(name));
+}
+
+/**
+ * Detect if a window is a known call app
+ */
+function detectCallApp(windowName) {
+  for (const app of CALL_APP_PATTERNS) {
+    if (app.pattern.test(windowName)) {
+      return app;
+    }
+  }
+  return null;
+}
+
+/**
+ * Show the call app picker and return selected source
+ * Returns: { id: string, name: string } or null if cancelled
+ */
+async function showCallAppPicker() {
+  const picker = document.getElementById('call-app-picker');
+  const callAppsGrid = document.getElementById('picker-call-apps-grid');
+  const otherGrid = document.getElementById('picker-other-grid');
+  const callAppsSection = document.getElementById('picker-call-apps');
+  const otherSection = document.getElementById('picker-other-windows');
+
+  if (!picker) return null;
+
+  // Get desktop sources from Electron
+  let sources = [];
+  if (window.electronAPI?.getDesktopSources) {
+    sources = await window.electronAPI.getDesktopSources();
+
+    // Log RAW sources for debugging
+    console.log('[Picker] ═══════════════════════════════════════════════════');
+    console.log('[Picker] RAW desktopCapturer.getSources() output:');
+    console.log('[Picker] Total sources:', sources.length);
+    sources.forEach((s, i) => {
+      console.log(`[Picker]   ${i}: id="${s.id}" name="${s.name}" display_id="${s.display_id || 'N/A'}"`);
+    });
+    console.log('[Picker] ═══════════════════════════════════════════════════');
+  }
+
+  // Categorize sources into: Call Apps, Browser Tabs, Other Windows, Screens
+  const callApps = [];
+  const browserTabs = [];
+  const otherWindows = [];
+  const screens = [];
+
+  // Browser patterns for detecting browser windows/tabs
+  const browserPatterns = [
+    { pattern: /^.+ - Google Chrome$/i, browser: 'Chrome' },
+    { pattern: /^.+ - Chrome$/i, browser: 'Chrome' },
+    { pattern: /^.+ - Mozilla Firefox$/i, browser: 'Firefox' },
+    { pattern: /^.+ - Firefox$/i, browser: 'Firefox' },
+    { pattern: /^.+ - Microsoft Edge$/i, browser: 'Edge' },
+    { pattern: /^.+ - Edge$/i, browser: 'Edge' },
+    { pattern: /^.+ - Brave$/i, browser: 'Brave' },
+    { pattern: /^.+ - Opera$/i, browser: 'Opera' },
+    { pattern: /^.+ - Safari$/i, browser: 'Safari' }
+  ];
+
+  for (const source of sources) {
+    // Handle screens separately
+    if (source.id.startsWith('screen:')) {
+      screens.push(source);
+      continue;
+    }
+
+    // Skip system windows (Default IME, MSCTFIME, etc.)
+    if (isSystemWindow(source.name)) {
+      console.log('[Picker] Filtered out system window:', source.name);
+      continue;
+    }
+
+    // IMPORTANT: Check for browser FIRST before call apps
+    // This prevents "Zoom Meeting - Google Chrome" from being categorized as Zoom
+    let isBrowser = false;
+    for (const bp of browserPatterns) {
+      if (bp.pattern.test(source.name)) {
+        // Extract the tab title (everything before " - Browser")
+        const tabTitle = source.name.replace(/ - (Google Chrome|Chrome|Mozilla Firefox|Firefox|Microsoft Edge|Edge|Brave|Opera|Safari)$/i, '');
+        browserTabs.push({ ...source, tabTitle, browser: bp.browser });
+        isBrowser = true;
+        break;
+      }
+    }
+    if (isBrowser) continue;
+
+    // Check if it's a known NATIVE call app (not browser-based)
+    const detected = detectCallApp(source.name);
+    if (detected) {
+      callApps.push({ ...source, detectedApp: detected });
+      continue;
+    }
+
+    // Everything else goes to Other Windows
+    otherWindows.push(source);
+  }
+
+  console.log('[Picker] Categorized:');
+  console.log('[Picker]   Call apps:', callApps.length, callApps.map(s => s.name));
+  console.log('[Picker]   Browser tabs:', browserTabs.length, browserTabs.map(s => s.tabTitle));
+  console.log('[Picker]   Other windows:', otherWindows.length, otherWindows.map(s => s.name));
+  console.log('[Picker]   Screens:', screens.length);
+
+  // Build call apps grid - prioritize app icon, then thumbnail, then fallback SVG
+  if (callApps.length > 0) {
+    callAppsSection.style.display = 'block';
+    callAppsGrid.innerHTML = callApps.map(source => {
+      // Prefer app icon over thumbnail for cleaner look
+      const iconHtml = source.appIcon
+        ? `<img src="${source.appIcon}" alt="${source.detectedApp.name}" class="app-icon">`
+        : (source.thumbnail
+          ? `<img src="${source.thumbnail}" alt="${source.detectedApp.name}">`
+          : `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/>
+            </svg>`);
+      return `
+        <div class="picker-item" data-source-id="${source.id}" data-source-name="${escapeHtml(source.name)}">
+          <div class="picker-item-icon">${iconHtml}</div>
+          <span class="picker-item-name">${source.detectedApp.name}</span>
+          <span class="picker-item-hint">${escapeHtml(source.name)}</span>
+        </div>
+      `;
+    }).join('');
+  } else {
+    callAppsSection.style.display = 'none';
+  }
+
+  // Build "Browser Tabs & Other Windows" grid
+  const allOtherWindows = [...browserTabs, ...otherWindows];
+  if (allOtherWindows.length > 0) {
+    otherSection.style.display = 'block';
+    // Show up to 8 windows
+    otherGrid.innerHTML = allOtherWindows.slice(0, 8).map(source => {
+      const displayName = source.tabTitle || source.name;
+      const truncatedName = displayName.length > 40 ? displayName.substring(0, 37) + '...' : displayName;
+      // Prefer app icon (cleaner) over thumbnail
+      const iconHtml = source.appIcon
+        ? `<img src="${source.appIcon}" alt="" class="app-icon">`
+        : (source.thumbnail
+          ? `<img src="${source.thumbnail}" alt="">`
+          : `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+            </svg>`);
+      return `
+        <div class="picker-item" data-source-id="${source.id}" data-source-name="${escapeHtml(source.name)}">
+          <div class="picker-item-icon">${iconHtml}</div>
+          <span class="picker-item-name">${escapeHtml(truncatedName)}</span>
+          ${source.browser ? `<span class="picker-item-hint">${source.browser}</span>` : ''}
+        </div>
+      `;
+    }).join('');
+  } else {
+    otherSection.style.display = 'none';
+  }
+
+  // Show picker
+  picker.style.display = 'flex';
+
+  // Return a promise that resolves when user selects
+  return new Promise((resolve) => {
+    pickerResolve = resolve;
+
+    // Handle item clicks
+    const handleItemClick = (e) => {
+      const item = e.target.closest('.picker-item');
+      if (!item) return;
+
+      const sourceId = item.dataset.sourceId;
+      const sourceName = item.dataset.sourceName;
+
+      picker.style.display = 'none';
+      picker.removeEventListener('click', handleItemClick);
+      pickerResolve = null;
+
+      resolve({ id: sourceId, name: sourceName });
+    };
+
+    picker.addEventListener('click', handleItemClick);
+  });
+}
+
+/**
+ * Escape HTML to prevent XSS in picker
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Hide the call app picker (cancel)
+ */
+function hideCallAppPicker() {
+  const picker = document.getElementById('call-app-picker');
+  if (picker) {
+    picker.style.display = 'none';
+  }
+  if (pickerResolve) {
+    pickerResolve(null);
+    pickerResolve = null;
+  }
+}
+
+/**
+ * Update the call app display in the main widget
+ */
+function updateCallAppDisplay() {
+  const display = document.getElementById('call-app-display');
+  if (display) {
+    if (selectedDialerSource) {
+      display.textContent = selectedDialerSource.name;
+      display.style.color = '';
+    } else {
+      display.textContent = 'Not selected';
+      display.style.color = 'var(--text-muted)';
+    }
+  }
+}
+
 function showToast(message, type = 'success') {
   // Remove existing toast
   const existing = document.querySelector('.toast');
@@ -1772,17 +2540,34 @@ function stopAudioCapture() {
     deepgramMicSocket = null;
   }
 
-  // Stop system audio
+  // Stop system audio - MUTE instead of close if persistent stream exists
+  // This allows the stream to be reused without showing the picker again
   if (systemMediaRecorder && systemMediaRecorder.state !== 'inactive') {
     systemMediaRecorder.stop();
   }
-  if (systemAudioStream) {
+  if (persistentSystemStream) {
+    // MUTE the persistent stream instead of stopping it
+    const tracks = persistentSystemStream.getAudioTracks();
+    tracks.forEach(track => {
+      track.enabled = false;
+      console.log('[Audio] System audio track MUTED (not stopped):', track.label);
+    });
+    systemStreamMuted = true;
+    systemAudioStream = null; // Clear reference but keep persistent stream
+    console.log('[Audio] Persistent system stream muted - will reuse on next toggle');
+  } else if (systemAudioStream) {
+    // No persistent stream, just stop it
     systemAudioStream.getTracks().forEach(track => track.stop());
     systemAudioStream = null;
   }
   if (deepgramSystemSocket) {
     deepgramSystemSocket.close();
     deepgramSystemSocket = null;
+  }
+
+  // Clear window capture handler
+  if (window.electronAPI?.clearWindowCapture) {
+    window.electronAPI.clearWindowCapture().catch(() => {});
   }
 
   isCapturingAudio = false;
@@ -1855,8 +2640,8 @@ function connectDeepgramMic() {
         const isFinal = data.is_final;
 
         if (transcript.trim()) {
-          // Record audio activity to prevent auto-timeout
-          recordAudioActivity();
+          // Note: Rep audio does NOT reset auto-timeout - only customer audio does
+          // This ensures listening auto-powers off if left on without a customer on the line
 
           console.log(`[Mic/REP] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
@@ -1904,151 +2689,189 @@ function startMicRecording() {
 }
 
 // ==================== SYSTEM AUDIO CAPTURE (CUSTOMER VOICE) ====================
+// Uses Electron's desktopCapturer + getUserMedia with chromeMediaSource: 'desktop'
+// Tries multiple approaches: 1) No source ID, 2) Screen source, 3) Window source
 
 async function startSystemAudioCapture() {
   const toggleHint = document.getElementById('toggle-hint');
 
   try {
     console.log('[System] ═══════════════════════════════════════════════════');
-    console.log('[System] STARTING SYSTEM AUDIO CAPTURE - DEVICE ENUMERATION');
-
-    const allDevices = await navigator.mediaDevices.enumerateDevices();
-    console.log('[System] ALL DEVICES FOUND (' + allDevices.length + ' total):');
-    allDevices.forEach((device, index) => {
-      console.log('[System]   ' + index + ': ' + device.kind + ' - "' + device.label + '"');
-    });
-
-    const audioOutputs = allDevices.filter(d => d.kind === 'audiooutput');
-    const audioInputs = allDevices.filter(d => d.kind === 'audioinput');
-    console.log('[System] Summary: ' + audioOutputs.length + ' outputs, ' + audioInputs.length + ' inputs');
+    console.log('[System] STARTING SYSTEM AUDIO CAPTURE (chromeMediaSource)');
+    console.log('[System] persistentSystemStream exists:', !!persistentSystemStream);
+    console.log('[System] systemStreamMuted:', systemStreamMuted);
     console.log('[System] ═══════════════════════════════════════════════════');
 
-    if (toggleHint) toggleHint.textContent = 'Finding audio devices...';
+    // Check if we already have a persistent stream
+    if (persistentSystemStream) {
+      const tracks = persistentSystemStream.getAudioTracks();
+      const isActive = tracks.length > 0 && tracks[0].readyState === 'live';
 
-    // Use selected speaker to find corresponding loopback
-    let targetOutputName = '';
-    if (selectedSpeakerId) {
-      const selectedOutput = audioOutputs.find(d => d.deviceId === selectedSpeakerId);
-      if (selectedOutput) {
-        targetOutputName = selectedOutput.label;
-        console.log('[System] Using selected speaker:', targetOutputName);
+      if (isActive) {
+        console.log('[System] Reusing persistent stream (no new capture needed)');
+        tracks.forEach(track => {
+          track.enabled = true;
+          console.log('[System] Track unmuted:', track.label);
+        });
+        systemStreamMuted = false;
+        systemAudioStream = persistentSystemStream;
+
+        if (toggleHint) toggleHint.textContent = 'Listening (system audio)';
+        connectDeepgramSystem();
+        return;
+      } else {
+        console.log('[System] Persistent stream ended - need new capture');
+        persistentSystemStream = null;
       }
     }
 
-    // If no selection, use default
-    if (!targetOutputName) {
-      const defaultOutput = audioOutputs.find(d => d.deviceId === 'default');
-      if (defaultOutput && defaultOutput.label) {
-        const match = defaultOutput.label.match(/Default\s*[-–—]\s*(.+)/i);
-        targetOutputName = match ? match[1].trim() : defaultOutput.label;
-      }
-    }
+    if (toggleHint) toggleHint.textContent = 'Capturing system audio...';
 
-    console.log('[System] Target output device:', targetOutputName);
+    // ═══════════════════════════════════════════════════════════════════
+    // TRY MULTIPLE APPROACHES FOR SYSTEM AUDIO CAPTURE
+    // ═══════════════════════════════════════════════════════════════════
 
-    // Find loopback device
-    let loopbackDevice = null;
-    let matchReason = '';
+    let stream = null;
 
-    // Extract keywords from output name
-    if (targetOutputName) {
-      const outputKeywords = targetOutputName.toLowerCase()
-        .replace(/\([^)]*\)/g, '')
-        .split(/[\s,\-]+/)
-        .filter(w => w.length > 2 && !['default', 'audio', 'device'].includes(w));
+    // APPROACH 1: No source ID - capture ALL system audio
+    console.log('[System] Approach 1: Trying capture without source ID (all system audio)...');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: {
+            chromeMediaSource: 'desktop'
+          }
+        },
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop'
+          }
+        }
+      });
+      console.log('[System] Approach 1 SUCCESS - got stream without source ID');
+    } catch (err1) {
+      console.log('[System] Approach 1 failed:', err1.name, err1.message);
 
-      console.log('[System] Output keywords:', outputKeywords);
+      // APPROACH 2: Use a SCREEN source (not window)
+      console.log('[System] Approach 2: Trying with screen source...');
+      try {
+        const sources = await window.electronAPI.getDesktopSources();
+        const screenSource = sources.find(s => s.id.startsWith('screen:'));
 
-      // Strategy 1: Loopback matching output
-      for (const input of audioInputs) {
-        const inputLabel = input.label.toLowerCase();
-        if (inputLabel.includes('loopback')) {
-          for (const keyword of outputKeywords) {
-            if (inputLabel.includes(keyword)) {
-              loopbackDevice = input;
-              matchReason = `Loopback matching "${keyword}"`;
-              break;
+        if (screenSource) {
+          console.log('[System] Using screen source:', screenSource.name, screenSource.id);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: screenSource.id
+              }
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: screenSource.id
+              }
+            }
+          });
+          console.log('[System] Approach 2 SUCCESS - got stream with screen source');
+        } else {
+          throw new Error('No screen source found');
+        }
+      } catch (err2) {
+        console.log('[System] Approach 2 failed:', err2.name || err2, err2.message || '');
+
+        // APPROACH 3: Let user pick from our custom picker (window sources)
+        console.log('[System] Approach 3: Showing picker for window source...');
+        if (toggleHint) toggleHint.textContent = 'Select audio source...';
+
+        const selectedSource = await showCallAppPicker();
+        if (!selectedSource) {
+          console.log('[System] User cancelled picker');
+          if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
+          return;
+        }
+
+        console.log('[System] Selected source:', selectedSource.name, 'ID:', selectedSource.id);
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: selectedSource.id
+            }
+          },
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: selectedSource.id
             }
           }
-          if (loopbackDevice) break;
-        }
+        });
+        console.log('[System] Approach 3 SUCCESS - got stream with window source');
       }
     }
 
-    // Strategy 2: Any loopback
-    if (!loopbackDevice) {
-      const anyLoopback = audioInputs.find(d => d.label.toLowerCase().includes('loopback'));
-      if (anyLoopback) {
-        loopbackDevice = anyLoopback;
-        matchReason = 'Generic loopback';
-      }
+    if (!stream) {
+      throw new Error('All capture approaches failed');
     }
 
-    // Strategy 3: What U Hear
-    if (!loopbackDevice) {
-      const whatUHear = audioInputs.find(d => d.label.toLowerCase().includes('what u hear'));
-      if (whatUHear) {
-        loopbackDevice = whatUHear;
-        matchReason = 'What U Hear';
-      }
-    }
+    console.log('[System] Got stream from getUserMedia!');
+    console.log('[System] Audio tracks:', stream.getAudioTracks().length);
+    console.log('[System] Video tracks:', stream.getVideoTracks().length);
 
-    // Strategy 4: Stereo Mix
-    if (!loopbackDevice) {
-      const stereoMix = audioInputs.find(d => d.label.toLowerCase().includes('stereo mix'));
-      if (stereoMix) {
-        loopbackDevice = stereoMix;
-        matchReason = 'Stereo Mix';
-      }
-    }
-
-    // Strategy 5: Any mix device
-    if (!loopbackDevice) {
-      const mixDevice = audioInputs.find(d => {
-        const label = d.label.toLowerCase();
-        return label.includes('wave out') || label.includes('mix');
-      });
-      if (mixDevice) {
-        loopbackDevice = mixDevice;
-        matchReason = 'Mix device';
-      }
-    }
-
-    if (!loopbackDevice) {
-      console.error('[System] No loopback device found');
-      if (toggleHint) toggleHint.textContent = 'No loopback - mic only';
-      showToast('No system audio capture available', 'warning');
-      return;
-    }
-
-    console.log('[System] Selected:', loopbackDevice.label, '-', matchReason);
-
-    // Capture audio
-    systemAudioStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: { exact: loopbackDevice.deviceId },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
-      }
+    // Stop video tracks - we only need audio
+    stream.getVideoTracks().forEach(track => {
+      console.log('[System] Stopping video track:', track.label);
+      track.stop();
+      stream.removeTrack(track);
     });
 
-    const audioTracks = systemAudioStream.getAudioTracks();
+    // Check if we got audio
+    const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
-      console.error('[System] No audio track');
-      systemAudioStream = null;
+      console.warn('[System] No audio track received');
+      if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
+      showToast('No system audio from selected source.', 'warning');
       return;
     }
 
-    console.log('[System] ✅ Capture successful:', loopbackDevice.label);
-    if (toggleHint) toggleHint.textContent = 'Listening to mic & speaker';
+    // Store the audio stream
+    systemAudioStream = stream;
+    persistentSystemStream = stream;
+    systemStreamMuted = false;
 
+    // Handle stream ending
+    audioTracks[0].onended = () => {
+      console.log('[System] Audio track ended');
+      persistentSystemStream = null;
+    };
+
+    const audioTrack = audioTracks[0];
+    console.log('[System] System audio capture successful!');
+    console.log('[System] Audio track:', audioTrack.label);
+    console.log('[System] Audio track settings:', JSON.stringify(audioTrack.getSettings()));
+
+    // Update UI
+    if (toggleHint) toggleHint.textContent = 'Listening (system audio)';
+    showToast('System audio connected', 'success');
+
+    // Connect to Deepgram for transcription
     connectDeepgramSystem();
 
   } catch (error) {
-    console.error('[System] Failed:', error);
-    if (toggleHint) toggleHint.textContent = 'System audio failed - mic only';
-    showToast('System audio unavailable', 'warning');
+    console.error('[System] System audio capture failed:', error.name, error.message);
+    console.error('[System] Full error:', error);
+
+    const toggleHint = document.getElementById('toggle-hint');
+    if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
+
+    if (error.name === 'NotAllowedError') {
+      showToast('Screen share cancelled. Using mic only.', 'info');
+    } else if (error.name === 'NotReadableError') {
+      showToast('Audio source busy. Try closing other apps using audio.', 'warning');
+    } else {
+      showToast('System audio not available. Using mic only.', 'warning');
+    }
   }
 }
 
@@ -2084,8 +2907,9 @@ function connectDeepgramSystem() {
         const isFinal = data.is_final;
 
         if (transcript.trim()) {
-          // Record audio activity to prevent auto-timeout
-          recordAudioActivity();
+          // Record CUSTOMER audio activity - this resets the auto-timeout timer
+          // Only customer audio keeps the listener active, not rep audio
+          recordCustomerAudioActivity();
 
           console.log(`[System/CUSTOMER] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 

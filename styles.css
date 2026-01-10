@@ -15,7 +15,7 @@
   --nav-teal: #00C7BE;
   --accent: #00C7BE;
 
-  /* Glass colors */
+  /* Glass colors - Dark mode (default) */
   --glass-bg: rgba(18, 18, 24, 0.92);
   --glass-bg-light: rgba(255, 255, 255, 0.04);
   --glass-border: rgba(255, 255, 255, 0.08);
@@ -31,6 +31,233 @@
   --success: #34C759;
   --warning: #FF9F0A;
   --error: #FF453A;
+
+  /* Input/Select backgrounds */
+  --input-bg: rgba(0, 0, 0, 0.3);
+  --input-option-bg: #1a1a22;
+  --header-bg: rgba(0, 0, 0, 0.15);
+  --footer-bg: rgba(0, 0, 0, 0.1);
+  --tab-bg: rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== LIGHT MODE ==================== */
+
+[data-theme="light"] {
+  /* Accent stays the same but slightly darker for contrast */
+  --accent: #0099AA;
+  --nav-teal: #0099AA;
+
+  /* Glass colors - Light mode (frosted glass effect) */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-border-hover: rgba(0, 0, 0, 0.12);
+
+  /* Text colors - inverted */
+  --text-primary: rgba(18, 18, 24, 0.95);
+  --text-secondary: rgba(18, 18, 24, 0.65);
+  --text-muted: rgba(18, 18, 24, 0.45);
+  --text-dim: rgba(18, 18, 24, 0.3);
+
+  /* Status colors - slightly adjusted for light bg */
+  --success: #28A745;
+  --warning: #E68A00;
+  --error: #DC3545;
+
+  /* Input/Select backgrounds - more translucent */
+  --input-bg: rgba(255, 255, 255, 0.5);
+  --input-option-bg: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.4);
+  --footer-bg: rgba(255, 255, 255, 0.35);
+  --tab-bg: rgba(255, 255, 255, 0.45);
+}
+
+/* Light mode specific overrides - Frosted Glass Effect */
+[data-theme="light"] .widget {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+[data-theme="light"] .device-select option {
+  background: var(--input-option-bg);
+  color: var(--text-primary);
+}
+
+/* Light mode cards and panels - frosted glass */
+[data-theme="light"] .nudge-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 153, 170, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .nudge-echo {
+  background: rgba(0, 153, 170, 0.08);
+}
+
+[data-theme="light"] .stats-hero {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 153, 170, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .stats-profile {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 153, 170, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .stats-card {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .power-btn {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .power-btn:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .power-btn.active {
+  background: rgba(0, 153, 170, 0.12);
+  border-color: rgba(0, 153, 170, 0.25);
+}
+
+[data-theme="light"] .listening-indicator {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 153, 170, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[data-theme="light"] .input-field {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .input-field:focus {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 153, 170, 0.4);
+}
+
+[data-theme="light"] .device-select {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .tab-nav {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .tab-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .tab-btn.active {
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .header {
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .footer {
+  background: rgba(255, 255, 255, 0.45);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .leaderboard-header {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .leaderboard-item {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .leaderboard-item:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .leaderboard-item.current-user {
+  background: rgba(0, 153, 170, 0.08);
+  border-color: rgba(0, 153, 170, 0.15);
+}
+
+[data-theme="light"] .stats-motivation {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .nudge-btn {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .nudge-btn:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .toast {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .btn {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 153, 170, 0.2);
+}
+
+[data-theme="light"] .btn-primary {
+  background: linear-gradient(135deg, rgba(0, 153, 170, 0.15), rgba(74, 144, 217, 0.1));
+  border: 1px solid rgba(0, 153, 170, 0.2);
+}
+
+[data-theme="light"] .btn-primary:hover {
+  background: linear-gradient(135deg, rgba(0, 153, 170, 0.25), rgba(74, 144, 217, 0.15));
+}
+
+/* Light mode section backgrounds */
+[data-theme="light"] .section {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+}
+
+[data-theme="light"] .device-section {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .toggle-section {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"] .nudge-section {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="light"] .stats-section {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 html, body {
@@ -275,7 +502,7 @@ button, select {
   justify-content: space-between;
   padding: 10px 14px;
   border-bottom: 1px solid var(--glass-border);
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--header-bg);
 }
 
 .window-controls {
@@ -339,6 +566,51 @@ button, select {
   font-weight: 700;
 }
 
+/* Theme Toggle Button */
+.theme-toggle-btn {
+  -webkit-app-region: no-drag;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(0, 199, 190, 0.2);
+  color: var(--accent);
+}
+
+/* Show sun in dark mode, moon in light mode */
+.theme-toggle-btn .sun-icon {
+  display: block;
+}
+
+.theme-toggle-btn .moon-icon {
+  display: none;
+}
+
+[data-theme="light"] .theme-toggle-btn .sun-icon {
+  display: none;
+}
+
+[data-theme="light"] .theme-toggle-btn .moon-icon {
+  display: block;
+}
+
+[data-theme="light"] .theme-toggle-btn {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .theme-toggle-btn:hover {
+  background: rgba(0, 153, 170, 0.15);
+}
+
 .signout-btn {
   -webkit-app-region: no-drag;
   background: rgba(255, 255, 255, 0.08);
@@ -356,6 +628,10 @@ button, select {
 .signout-btn:hover {
   background: rgba(255, 69, 58, 0.2);
   color: var(--error);
+}
+
+[data-theme="light"] .signout-btn {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* ==================== CONTENT AREA ==================== */
@@ -405,7 +681,7 @@ button, select {
 .device-select {
   width: 100%;
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--input-bg);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   color: var(--text-primary);
@@ -413,7 +689,7 @@ button, select {
   font-family: inherit;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 6px center;
   padding-right: 22px;
@@ -431,8 +707,231 @@ button, select {
 }
 
 .device-select option {
-  background: #1a1a22;
-  color: #fff;
+  background: var(--input-option-bg);
+  color: var(--text-primary);
+}
+
+/* ==================== AUDIO CONFIG SECTION (NEW) ==================== */
+
+.audio-config-section {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audio-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+}
+
+.audio-config-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.audio-config-icon.mic {
+  background: linear-gradient(135deg, rgba(0, 199, 190, 0.2), rgba(0, 199, 190, 0.1));
+  color: var(--accent);
+}
+
+.audio-config-icon.dialer {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.2), rgba(74, 144, 217, 0.1));
+  color: var(--nav-blue);
+}
+
+.audio-config-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.audio-config-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.audio-config-value {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-config-value.not-set {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Header icon buttons (unified style for theme, settings, signout) */
+.header-icon-btn {
+  -webkit-app-region: no-drag;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-icon-btn:hover {
+  background: rgba(0, 199, 190, 0.2);
+  color: var(--accent);
+}
+
+.header-icon-btn.active {
+  color: var(--accent);
+  background: rgba(0, 199, 190, 0.15);
+}
+
+[data-theme="light"] .header-icon-btn {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .header-icon-btn:hover {
+  background: rgba(0, 153, 170, 0.15);
+}
+
+/* Settings menu container */
+.settings-menu-container {
+  position: relative;
+}
+
+/* Settings dropdown menu */
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 8px 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.settings-dropdown.show {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.settings-user-info {
+  padding: 8px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-company {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 4px 0;
+}
+
+.settings-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.settings-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.settings-menu-item:hover {
+  background: var(--glass-bg-light);
+  color: var(--text-primary);
+}
+
+.settings-menu-item:hover svg {
+  color: var(--accent);
+}
+
+.settings-menu-item.signout:hover {
+  color: var(--danger);
+}
+
+.settings-menu-item.signout:hover svg {
+  color: var(--danger);
+}
+
+/* Clickable audio config rows */
+.audio-config-row.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.audio-config-row.clickable:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+}
+
+.audio-config-row.clickable:active {
+  transform: scale(0.98);
+}
+
+.audio-config-change {
+  font-size: 10px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.audio-config-row.clickable:hover .audio-config-change {
+  opacity: 1;
 }
 
 /* ==================== TOGGLE SECTION ==================== */
@@ -474,7 +973,7 @@ button, select {
   height: 48px;
   border-radius: 50%;
   border: 2px solid var(--glass-border);
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--input-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -484,7 +983,7 @@ button, select {
 
 .power-btn:hover {
   border-color: var(--glass-border-hover);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--glass-bg-light);
 }
 
 .power-btn.active {
@@ -1576,4 +2075,714 @@ button, select {
   color: var(--text-secondary);
   font-size: 10px;
   min-width: 30px;
+}
+
+/* ==================== SETUP WIZARD (DIALER SELECTION) ==================== */
+
+.setup-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 12px;
+  overflow: hidden;
+}
+
+.setup-step-indicator {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.step-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.setup-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.setup-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.setup-section {
+  margin-bottom: 12px;
+}
+
+.setup-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.setup-section-label svg {
+  color: var(--accent);
+}
+
+.setup-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  text-overflow: ellipsis;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.setup-select:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.setup-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.setup-select option {
+  background: var(--input-option-bg);
+  color: var(--text-primary);
+}
+
+.dialer-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+  min-height: 80px;
+  max-height: 140px;
+}
+
+.dialer-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dialer-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dialer-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 2px;
+}
+
+.dialer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.dialer-loading .spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--glass-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.dialer-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dialer-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+}
+
+.dialer-option.selected {
+  background: rgba(0, 199, 190, 0.1);
+  border-color: var(--accent);
+}
+
+.dialer-option.selected .dialer-radio {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.dialer-option.selected .dialer-radio::after {
+  opacity: 1;
+}
+
+.dialer-radio {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--glass-border);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.dialer-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dialer-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--glass-bg);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.dialer-icon.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--nav-teal), var(--nav-blue));
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dialer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialer-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dialer-type {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.setup-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 199, 190, 0.08);
+  border: 1px solid rgba(0, 199, 190, 0.2);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.setup-hint svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.setup-hint span {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.setup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.setup-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.setup-actions .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-secondary {
+  background: var(--glass-bg-light);
+  border-color: var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dialer category headers */
+.dialer-category {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 4px 4px;
+  margin-top: 4px;
+}
+
+.dialer-category:first-child {
+  margin-top: 0;
+}
+
+/* No dialers found state */
+.dialer-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.dialer-empty svg {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+/* Refresh button */
+.dialer-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px dashed var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dialer-refresh-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.dialer-refresh-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ==================== MIC TEST WAVEFORM ==================== */
+
+.mic-test-section {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.mic-test-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.mic-waveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 40px;
+  padding: 0 10px;
+}
+
+.waveform-bar {
+  width: 4px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: height 0.1s ease;
+  opacity: 0.6;
+}
+
+.mic-test-section.active .waveform-bar {
+  opacity: 1;
+}
+
+.mic-test-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.mic-test-status.success {
+  color: var(--success);
+}
+
+/* ==================== SETUP INSTRUCTIONS (STEP 2) ==================== */
+
+.setup-instructions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.instructions-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(0, 199, 190, 0.15), rgba(74, 144, 217, 0.15));
+  border-radius: 14px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.instructions-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: var(--glass-bg-light);
+  border-radius: 6px;
+  margin: 8px 0 12px;
+}
+
+.instructions-note strong {
+  color: var(--text-primary);
+}
+
+.instructions-steps {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.instruction-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.instruction-step strong {
+  color: var(--accent);
+}
+
+.instruction-number {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--nav-teal), var(--nav-blue));
+  border-radius: 50%;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.privacy-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 159, 10, 0.1);
+  border: 1px solid rgba(255, 159, 10, 0.2);
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--warning);
+  margin-top: auto;
+}
+
+.privacy-note svg {
+  flex-shrink: 0;
+  color: var(--warning);
+}
+
+/* ==================== LISTENING REMINDER ==================== */
+
+.listening-reminder {
+  display: block;
+  font-size: 9px;
+  color: var(--warning);
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+/* ==================== CALL APP PICKER MODAL ==================== */
+
+.picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: overlayFadeIn 0.2s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.picker-modal {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 340px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideUp 0.25s ease-out;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.picker-header {
+  padding: 20px 20px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.picker-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.picker-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.picker-content {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.picker-section {
+  margin-bottom: 16px;
+}
+
+.picker-section:last-child {
+  margin-bottom: 0;
+}
+
+.picker-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.picker-section-label svg {
+  opacity: 0.7;
+}
+
+.picker-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.picker-item:hover {
+  background: rgba(0, 199, 190, 0.1);
+  border-color: var(--accent);
+  transform: translateX(4px);
+}
+
+.picker-item.selected {
+  background: rgba(0, 199, 190, 0.15);
+  border-color: var(--accent);
+}
+
+.picker-item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.picker-item-icon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.picker-item-icon svg {
+  color: var(--text-secondary);
+}
+
+.picker-item-icon.system {
+  background: rgba(0, 199, 190, 0.15);
+}
+
+.picker-item-icon.system svg {
+  color: var(--accent);
+}
+
+.picker-item-icon.zoom { background: #2D8CFF20; }
+.picker-item-icon.teams { background: #6264A720; }
+.picker-item-icon.dialpad { background: #6C47FF20; }
+.picker-item-icon.meet { background: #00AC4720; }
+.picker-item-icon.webex { background: #00BCEB20; }
+.picker-item-icon.slack { background: #4A154B20; }
+
+.picker-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.picker-item-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-item-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.picker-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: center;
+}
+
+.picker-footer .btn {
+  min-width: 100px;
+}
+
+/* Empty state for picker sections */
+.picker-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Call app icon in audio config */
+.audio-config-icon.call-app {
+  background: rgba(0, 199, 190, 0.1);
+}
+
+.audio-config-icon.call-app svg {
+  color: var(--accent);
 }
