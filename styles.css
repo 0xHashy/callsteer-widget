@@ -11,9 +11,8 @@
 :root {
   /* Navigation theme colors */
   --nav-blue: #4A90D9;
-  --nav-green: #34C759;
-  --nav-teal: #00C7BE;
-  --accent: #00C7BE;
+  --nav-teal: #00C8D4;
+  --accent: #00C8D4;
 
   /* Glass colors - Dark mode (default) */
   --glass-bg: rgba(18, 18, 24, 0.92);
@@ -28,7 +27,7 @@
   --text-dim: rgba(255, 255, 255, 0.25);
 
   /* Status colors */
-  --success: #34C759;
+  --success: #00C8D4;
   --warning: #FF9F0A;
   --error: #FF453A;
 
@@ -38,6 +37,19 @@
   --header-bg: rgba(0, 0, 0, 0.15);
   --footer-bg: rgba(0, 0, 0, 0.1);
   --tab-bg: rgba(0, 0, 0, 0.2);
+  --bg-primary: #12121a;
+
+  /* Responsive typography & spacing - scales with window size */
+  --font-size-xs: 9px;
+  --font-size-sm: 11px;
+  --font-size-base: 13px;
+  --font-size-lg: 15px;
+  --font-size-xl: 18px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-base: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
 }
 
 /* ==================== LIGHT MODE ==================== */
@@ -324,11 +336,11 @@ button, select {
       inset 0 0 8px rgba(74, 144, 217, 0.1);
   }
   66% {
-    border-color: #34C759;
+    border-color: #00C8D4;
     box-shadow:
-      0 0 12px rgba(52, 199, 89, 0.7),
-      0 0 24px rgba(52, 199, 89, 0.4),
-      inset 0 0 8px rgba(52, 199, 89, 0.1);
+      0 0 12px rgba(0, 200, 212, 0.7),
+      0 0 24px rgba(0, 200, 212, 0.4),
+      inset 0 0 8px rgba(0, 200, 212, 0.1);
   }
 }
 
@@ -564,6 +576,24 @@ button, select {
 .title-ai {
   color: var(--accent);
   font-weight: 700;
+}
+
+/* User Greeting */
+.user-greeting {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  margin-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  pointer-events: none;
+}
+
+.user-greeting .rep-name {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Theme Toggle Button */
@@ -2084,7 +2114,9 @@ button, select {
   display: flex;
   flex-direction: column;
   padding: 16px 16px 12px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 50px); /* Account for header */
 }
 
 .setup-step-indicator {
@@ -2335,6 +2367,14 @@ button, select {
 .setup-actions {
   display: flex;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-primary);
+  padding: 12px 0;
+  margin-top: auto;
+  border-top: 1px solid var(--glass-border);
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .setup-actions .btn {
@@ -2474,6 +2514,377 @@ button, select {
   color: var(--success);
 }
 
+/* ==================== SCROLLABLE MODAL DEFAULTS ==================== */
+/* These ensure ALL modals are scrollable and buttons stay visible */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+.modal-content,
+[class*="modal-content"] {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-body,
+[class*="modal-body"] {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.modal-footer,
+[class*="modal-footer"] {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+}
+
+/* ==================== SETUP CHOICE CARDS (Step 0) ==================== */
+
+.setup-choice-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.setup-choice-card {
+  position: relative;
+  padding: 16px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.setup-choice-card:hover {
+  border-color: var(--glass-border-hover);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.setup-choice-card.recommended {
+  border-color: var(--accent);
+  background: rgba(0, 199, 190, 0.08);
+}
+
+.setup-choice-card.recommended:hover {
+  background: rgba(0, 199, 190, 0.12);
+}
+
+.choice-badge {
+  position: absolute;
+  top: -8px;
+  left: 16px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #000;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+}
+
+.choice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 10px;
+  background: linear-gradient(135deg, rgba(0, 199, 190, 0.15), rgba(74, 144, 217, 0.15));
+  border-radius: 12px;
+  color: var(--accent);
+}
+
+.choice-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.choice-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.choice-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.choice-features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.choice-features li svg {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.choice-btn {
+  width: 100%;
+}
+
+/* ==================== LISTEN SETUP (Step 2) ==================== */
+
+.listen-setup-instructions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.listen-setup-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.listen-steps {
+  width: 100%;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.listen-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.listen-step:not(:last-child) {
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.listen-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.listen-step strong {
+  color: var(--text-primary);
+}
+
+.listen-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.listen-step-hint {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Setup Warning Callout */
+.setup-warning-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.setup-warning-callout svg {
+  flex-shrink: 0;
+  color: #ffc107;
+  margin-top: 2px;
+}
+
+.warning-callout-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.warning-callout-text strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffc107;
+}
+
+.warning-callout-text span {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* Audio Tooltip */
+.audio-tooltip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  cursor: help;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.audio-tooltip:hover {
+  opacity: 1;
+}
+
+.audio-tooltip svg {
+  color: var(--text-muted);
+}
+
+/* Ghost Button Style */
+.btn.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.btn.btn-ghost:hover {
+  background: var(--glass-bg-light);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+
+/* ==================== AUDIO WARNING BANNER ==================== */
+
+.audio-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 6px;
+  font-size: 10px;
+  color: #ffc107;
+  margin: 0 0 8px;
+}
+
+.audio-warning svg {
+  flex-shrink: 0;
+  color: #ffc107;
+}
+
+.audio-warning span {
+  flex: 1;
+}
+
+.warning-dismiss {
+  background: none;
+  border: none;
+  color: #ffc107;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.warning-dismiss:hover {
+  opacity: 1;
+}
+
+/* ==================== SYSTEM AUDIO STATUS ==================== */
+
+.audio-config-icon.system-audio {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.15), rgba(0, 199, 190, 0.15));
+}
+
+.audio-config-icon.system-audio svg {
+  color: var(--accent);
+}
+
+.system-audio-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.system-audio-status .status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.system-audio-status.error .status-dot {
+  background: var(--error);
+  animation: none;
+}
+
+.system-audio-status.warning .status-dot {
+  background: #ffc107;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.audio-help-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.audio-help-link:hover {
+  color: var(--accent);
+}
+
+/* Instructions icon success variant */
+.instructions-icon.success {
+  background: linear-gradient(135deg, rgba(52, 199, 89, 0.15), rgba(0, 199, 190, 0.15));
+  color: var(--success);
+}
+
 /* ==================== SETUP INSTRUCTIONS (STEP 2) ==================== */
 
 .setup-instructions {
@@ -2483,6 +2894,8 @@ button, select {
   align-items: center;
   text-align: center;
   padding: 0 8px;
+  overflow-y: auto;
+  min-height: 0; /* Allow flex shrinking for scroll */
 }
 
 .instructions-icon {
@@ -2560,7 +2973,8 @@ button, select {
   border-radius: 6px;
   font-size: 10px;
   color: var(--warning);
-  margin-top: auto;
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .privacy-note svg {
@@ -2785,4 +3199,890 @@ button, select {
 
 .audio-config-icon.call-app svg {
   color: var(--accent);
+}
+
+/* ==================== COMPACT MODE ==================== */
+
+/* Toggle switch in settings menu */
+.settings-menu-item.toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 12px;
+}
+
+.toggle-item-label {
+  flex: 1;
+  margin-left: 0;
+}
+
+.toggle-switch {
+  width: 36px;
+  height: 20px;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-switch.active {
+  background: linear-gradient(135deg, var(--nav-teal), var(--nav-blue));
+  border-color: var(--nav-teal);
+}
+
+.toggle-switch-slider {
+  width: 16px;
+  height: 16px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-switch.active .toggle-switch-slider {
+  left: 17px;
+}
+
+/* ==================== COMPACT MODE ==================== */
+
+/* Compact mode: 280x180px mini widget with just power button and nudge */
+body.compact-mode .widget {
+  overflow: hidden;
+}
+
+/* Hide EVERYTHING except power toggle and nudge section */
+body.compact-mode .header {
+  display: none !important;
+}
+
+body.compact-mode .audio-config-section {
+  display: none !important;
+}
+
+body.compact-mode .tab-nav {
+  display: none !important;
+}
+
+body.compact-mode .stats-section {
+  display: none !important;
+}
+
+body.compact-mode #tab-stats {
+  display: none !important;
+}
+
+body.compact-mode .listening-indicator {
+  display: none !important;
+}
+
+body.compact-mode .footer {
+  display: none !important;
+}
+
+/* Content area in compact mode - center everything */
+body.compact-mode .content {
+  padding: 10px;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact power toggle - large and centered */
+body.compact-mode .toggle-section {
+  padding: 10px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+}
+
+body.compact-mode .toggle-info {
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+body.compact-mode .power-btn {
+  width: 70px;
+  height: 70px;
+}
+
+body.compact-mode .power-icon {
+  width: 32px;
+  height: 32px;
+}
+
+body.compact-mode .toggle-status {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+body.compact-mode .toggle-hint {
+  font-size: 10px;
+  max-width: 200px;
+  text-align: center;
+}
+
+/* Compact nudge display - smaller card below power button */
+body.compact-mode .nudge-section {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-height: 70px;
+  overflow: hidden;
+  background: transparent !important;
+  border: none !important;
+}
+
+body.compact-mode .nudge-card {
+  padding: 8px 10px;
+  margin: 0;
+  background: rgba(0, 199, 190, 0.1);
+  border: 1px solid rgba(0, 199, 190, 0.2);
+  border-radius: 8px;
+}
+
+body.compact-mode .nudge-header {
+  margin-bottom: 4px;
+}
+
+body.compact-mode .nudge-type {
+  font-size: 8px;
+  padding: 2px 6px;
+}
+
+body.compact-mode .nudge-time {
+  display: none;
+}
+
+body.compact-mode .nudge-text {
+  font-size: 11px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.compact-mode .nudge-actions {
+  display: none !important;
+}
+
+body.compact-mode .nudge-empty {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+body.compact-mode .empty-text {
+  font-size: 11px;
+}
+
+body.compact-mode .empty-hint {
+  font-size: 9px;
+}
+
+/* Compact mode resize handles stay visible */
+body.compact-mode .resize-handle {
+  display: block;
+}
+
+/* ==================== RESPONSIVE LAYOUT IMPROVEMENTS ==================== */
+
+/* Make content area flex and scrollable */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure no horizontal scrollbar ever */
+.widget, .content, .section {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Nudge cards wrap text properly */
+.nudge-card {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.nudge-text {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Stats section stacks vertically when narrow */
+.stats-section {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.stat {
+  flex: 1 1 auto;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Hide stat dividers on wrap */
+@container widget (max-width: 320px) {
+  .stat-divider {
+    display: none;
+  }
+
+  .stats-section {
+    gap: 4px;
+  }
+
+  .stat {
+    min-width: 50px;
+  }
+}
+
+/* Smooth resize animations */
+.widget, .content, .section, .header, .footer {
+  transition: all 0.15s ease-out;
+}
+
+/* Stats grid responsive */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@container widget (max-width: 300px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .stats-card {
+    padding: 8px;
+  }
+}
+
+/* Leaderboard responsive */
+@container widget (max-width: 300px) {
+  .leaderboard-item {
+    padding: 6px 8px;
+  }
+
+  .leaderboard-item-name {
+    font-size: 11px;
+  }
+
+  .leaderboard-column-labels {
+    display: none;
+  }
+}
+
+/* ==================== WINDOW DRAG REGION ==================== */
+
+/* Make header draggable - ALWAYS on top, even with modals */
+.header {
+  -webkit-app-region: drag;
+  position: relative;
+  z-index: 100001; /* Higher than modal overlay (10000) */
+}
+
+/* Buttons should not be draggable */
+.header button,
+.header .window-controls,
+.header .settings-menu-container,
+.header .theme-toggle-btn {
+  -webkit-app-region: no-drag;
+}
+
+/* Modal should sit below the header for drag access */
+.modal-overlay {
+  top: 42px; /* Start below header so drag region is always accessible */
+}
+
+/* Window control buttons polish */
+.window-controls {
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+}
+
+.control-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.control-btn.close {
+  background: #FF5F57;
+}
+
+.control-btn.minimize {
+  background: #FFBD2E;
+}
+
+.control-btn.maximize {
+  background: #28CA41;
+}
+
+.control-btn:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+/* Show icons on hover (macOS style) */
+.control-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.control-btn.close:hover::after {
+  content: '×';
+  opacity: 1;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+}
+
+.control-btn.minimize:hover::after {
+  content: '−';
+  opacity: 1;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+}
+
+/* ==================== RESIZE HANDLES ==================== */
+
+/*
+ * GLOBAL resize handles - use FIXED positioning so they work on ALL screens
+ * (login, setup wizard, main widget, modals, etc.)
+ * z-index: 999999 ensures they're ALWAYS on top
+ */
+.resize-handle,
+.global-resize-handle {
+  position: fixed !important;
+  background: transparent;
+  z-index: 999999 !important; /* MUST be above everything including modals */
+  -webkit-app-region: no-drag;
+  pointer-events: auto !important;
+}
+
+/* Edge handles - slightly larger hit areas */
+.resize-handle-top {
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resize-handle-bottom {
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resize-handle-left {
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.resize-handle-right {
+  right: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+/* Corner handles - larger for easier grabbing */
+.resize-handle-corner {
+  width: 14px;
+  height: 14px;
+}
+
+.resize-handle-top-left {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.resize-handle-top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.resize-handle-bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.resize-handle-bottom-right {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+
+/* Visual indicator for bottom-right corner */
+.resize-handle-bottom-right::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg,
+    transparent 50%,
+    var(--glass-border) 50%,
+    var(--glass-border) 60%,
+    transparent 60%,
+    transparent 70%,
+    var(--glass-border) 70%,
+    var(--glass-border) 80%,
+    transparent 80%
+  );
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.resize-handle-bottom-right:hover::after,
+.resize-handle-bottom-right.active::after {
+  opacity: 0.9;
+}
+
+/* Active state feedback */
+.resize-handle.active {
+  background: rgba(0, 199, 190, 0.1);
+}
+
+/* ==================== RECORDING GLOW EFFECT ==================== */
+
+/* Pulsing glow when listening/recording */
+@keyframes recording-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px rgba(0, 199, 190, 0.4),
+      0 0 16px rgba(0, 199, 190, 0.2),
+      0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(0, 199, 190, 0.7),
+      0 0 40px rgba(0, 199, 190, 0.4),
+      0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+body.is-listening .widget {
+  animation: recording-glow 2s ease-in-out infinite;
+}
+
+/* Also apply to the tri-color pulse - make it more visible */
+body.is-listening .widget.listening {
+  animation: recording-glow 2s ease-in-out infinite, borderTriPulse 4s ease-in-out infinite;
+}
+
+/* ==================== RESPONSIVE MEDIA QUERIES ==================== */
+/* PRINCIPLE: Launch big, resize dynamically, stay beautiful at any size */
+
+/* ==================== ESSENTIAL ELEMENTS - NEVER HIDE ==================== */
+/*
+ * These elements must ALWAYS be visible unless explicitly in compact mode.
+ * Uses body:not(.compact-mode) to not interfere with compact mode toggle.
+ */
+
+/* ALL SCREENS - Header must be visible on login, setup, and main widget */
+body:not(.compact-mode) .widget > .header,
+body:not(.compact-mode) #login-screen > .header,
+body:not(.compact-mode) #setup-wizard .setup-header,
+body:not(.compact-mode) #main-widget > .header {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Main widget structure - all essential parts must be visible */
+body:not(.compact-mode) #main-widget {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body:not(.compact-mode) #main-widget > .content {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex: 1 !important;
+}
+
+body:not(.compact-mode) #main-widget > .footer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Content children - all sections visible */
+body:not(.compact-mode) #main-widget .audio-config-section {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body:not(.compact-mode) #main-widget .toggle-section {
+  display: flex !important;
+}
+
+body:not(.compact-mode) #main-widget .power-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+body:not(.compact-mode) #main-widget .tab-nav {
+  display: flex !important;
+}
+
+/* Tab content - active tab must show */
+body:not(.compact-mode) #main-widget .tab-content.active {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body:not(.compact-mode) #main-widget .nudge-section {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body:not(.compact-mode) #main-widget .stats-section {
+  display: flex !important;
+}
+
+/* Settings must ALWAYS be accessible */
+.settings-menu-container {
+  display: flex !important;
+  -webkit-app-region: no-drag !important;
+}
+
+.settings-btn,
+.header-icon-btn,
+#settings-btn {
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  -webkit-app-region: no-drag !important;
+}
+
+.settings-dropdown {
+  z-index: 99999 !important;
+}
+
+/* ==================== DYNAMIC TEXT SIZING ==================== */
+/* Use clamp() for text that scales with window size */
+
+.nudge-text {
+  font-size: clamp(11px, 2.5vw, 14px) !important;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.nudge-echo {
+  font-size: clamp(10px, 2vw, 12px) !important;
+}
+
+.stats-hero-value {
+  font-size: clamp(24px, 6vw, 48px) !important;
+}
+
+.stat-value {
+  font-size: clamp(14px, 3.5vw, 20px) !important;
+}
+
+.btn {
+  font-size: clamp(11px, 2.5vw, 14px);
+  padding: clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px);
+}
+
+.header-title {
+  font-size: clamp(12px, 3vw, 16px) !important;
+}
+
+.tab-btn {
+  font-size: clamp(9px, 2vw, 12px) !important;
+}
+
+/* ==================== SIZE-BASED ADJUSTMENTS ==================== */
+
+/* Large windows (> 700px height) - More breathing room */
+@media (min-height: 700px) {
+  :root {
+    --font-size-xs: 10px;
+    --font-size-sm: 12px;
+    --font-size-base: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+    --spacing-xs: 5px;
+    --spacing-sm: 10px;
+    --spacing-base: 14px;
+    --spacing-lg: 18px;
+    --spacing-xl: 24px;
+  }
+
+  .header {
+    padding: 12px 16px;
+    min-height: 48px;
+  }
+
+  .content {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .nudge-card {
+    padding: 16px;
+  }
+
+  .nudge-text {
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+  }
+
+  .stats-hero {
+    padding: 24px 20px;
+  }
+
+  .stats-hero-value {
+    font-size: 48px;
+  }
+
+  .leaderboard-list {
+    max-height: 180px;
+  }
+}
+
+/* Medium windows (500-550px height) - Slightly tighter spacing */
+@media (max-height: 550px) {
+  .header {
+    padding: 8px 12px;
+    min-height: 38px;
+  }
+
+  .content {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .nudge-card {
+    padding: 10px;
+  }
+
+  .stats-hero {
+    padding: 14px 12px;
+  }
+
+  .stats-hero-value {
+    font-size: 32px;
+  }
+
+  .leaderboard-list {
+    max-height: 120px;
+  }
+}
+
+/* Small windows (450-500px height) - Reduce spacing more */
+@media (max-height: 500px) {
+  .header {
+    padding: 6px 10px;
+    min-height: 34px;
+  }
+
+  .content {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .tab-nav {
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .tab-btn {
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+
+  .nudge-card {
+    padding: 8px;
+  }
+
+  .stats-hero {
+    padding: 10px;
+  }
+
+  .stats-hero-value {
+    font-size: 28px;
+  }
+
+  .stats-cards {
+    gap: 6px;
+  }
+
+  .stats-card {
+    padding: 8px;
+  }
+
+  .leaderboard-list {
+    max-height: 100px;
+  }
+
+  .footer {
+    padding: 8px 12px;
+  }
+}
+
+/* Very small windows (< 450px height) - Hide stats section only */
+@media (max-height: 450px) {
+  /* Hide non-essential elements (stats) but keep essentials visible */
+  body:not(.compact-mode) .stats-section {
+    display: none !important;
+  }
+
+  body:not(.compact-mode) .stats-motivation {
+    display: none !important;
+  }
+
+  body:not(.compact-mode) .leaderboard-section {
+    display: none !important;
+  }
+
+  .header {
+    padding: 5px 8px;
+    min-height: 30px;
+  }
+
+  .content {
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .tab-nav {
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .tab-btn {
+    padding: 4px 6px;
+    font-size: 8px;
+  }
+
+  .nudge-card {
+    padding: 6px;
+  }
+
+  .nudge-text {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .footer {
+    padding: 6px 10px;
+  }
+}
+
+/* Minimum height (< 400px) - Hide tabs too */
+@media (max-height: 400px) {
+  /* At absolute minimum size, also hide tabs */
+  body:not(.compact-mode) #main-widget .tab-nav {
+    display: none !important;
+  }
+
+  body:not(.compact-mode) .stats-profile {
+    display: none !important;
+  }
+
+  body:not(.compact-mode) .stats-cards {
+    display: none !important;
+  }
+
+  .header {
+    padding: 4px 6px;
+    min-height: 26px;
+  }
+
+  .content {
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .footer {
+    padding: 4px 8px;
+  }
+
+  .nudge-card {
+    padding: 4px;
+  }
+
+  .nudge-text {
+    font-size: 10px;
+  }
+}
+
+/* Width-based responsive adjustments */
+@media (max-width: 320px) {
+  .header-actions {
+    gap: 4px;
+  }
+
+  .header-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .nudge-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stats-cards {
+    grid-template-columns: 1fr 1fr;
+  }
 }

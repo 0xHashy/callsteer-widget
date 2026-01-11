@@ -65,7 +65,7 @@ const POLL_INTERVAL = 2000; // milliseconds
 ### Styling
 All styles are in [styles.css](styles.css). The app uses:
 - Background: `#1a1a2e`
-- Accent: `#00ff88` (green)
+- Accent: `#00C8D4` (blue-cyan)
 - Streak: `#ffd700` (gold)
 
 ## Notes

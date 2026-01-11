@@ -111,11 +111,11 @@ function generateIcon(size) {
         }
 
         if (isIcon) {
-          // Green gradient
+          // Blue-cyan gradient (#00C8D4 to #00A8B8)
           const gradientT = (x + y) / (2 * size);
           r = Math.round(0x00);
-          g = Math.round(0xff - gradientT * 0x33);
-          b = Math.round(0x88 - gradientT * 0x1e);
+          g = Math.round(0xC8 - gradientT * 0x20);
+          b = Math.round(0xD4 - gradientT * 0x1C);
         }
       }
 

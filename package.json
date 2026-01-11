@@ -6,6 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder --win --mac",
     "build:dir": "electron-builder --win --dir",
     "generate-icons": "node build/generate-icons.js"
   },
@@ -22,11 +24,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "electron-audio-loopback": "^1.0.0",
+    "electron-audio-loopback": "^1.0.6",
     "electron-updater": "^6.7.3"
   },
   "devDependencies": {
-    "electron": "^39.2.7",
+    "electron": "^38.7.2",
     "electron-builder": "^24.9.1",
     "png-to-ico": "^3.0.1"
   },
@@ -49,6 +51,48 @@
       ],
       "icon": "build/icon.ico",
       "publisherName": "CallSteer"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "nsis": {
       "oneClick": false,

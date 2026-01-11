@@ -34,6 +34,10 @@ let pickerResolve = null;         // Promise resolver for picker modal
 let popupDismissTimer = null;
 const POPUP_AUTO_DISMISS_MS = 15000;
 
+// ==================== NUDGE AUTO-DISMISS STATE ====================
+let nudgeAutoDismissTimer = null;
+const NUDGE_IGNORE_TIMEOUT_MS = 60000; // 60 seconds = auto-dismiss if ignored
+
 // ==================== REBUTTAL TRACKING STATE ====================
 let currentSuggestionText = '';      // The current nudge suggestion to match against
 let rebuttalsUsedToday = 0;          // Count of rebuttals used today
@@ -147,16 +151,29 @@ loadTheme();
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 async function initializeApp() {
+  // CRITICAL: Force remove compact mode on start - it must be explicitly enabled
+  document.body.classList.remove('compact-mode');
+  console.log('[Init] Compact mode forcibly removed on start');
+
   // Clear any stale persistent stream from previous session
   // This ensures Windows picker ALWAYS appears on first power click after app start
   persistentSystemStream = null;
   systemStreamMuted = false;
   console.log('[Init] Cleared persistentSystemStream - picker will show on first power click');
 
+  // Setup resize handles FIRST - they must work on ALL screens
+  setupGlobalResizeHandles();
+
   setupWindowControls();
   setupLoginHandlers();
   setupThemeToggle();
   setupSetupWizard();
+
+  // Load compact mode preference (only enables if explicitly saved as true)
+  await loadCompactModePreference();
+
+  // Load nudge sound preference
+  loadNudgeSoundPreference();
 
   // Load saved rep name if exists (for returning users)
   repName = localStorage.getItem('callsteer_rep_name') || null;
@@ -192,6 +209,143 @@ async function initializeApp() {
   if (window.electronAPI?.onLogoutRequest) {
     window.electronAPI.onLogoutRequest(handleLogout);
   }
+
+  // Listen for display media picker request from main process
+  // This is triggered when getDisplayMedia is called and main process needs us to show a picker
+  if (window.electronAPI?.onShowDisplayMediaPicker) {
+    window.electronAPI.onShowDisplayMediaPicker(handleDisplayMediaPickerRequest);
+  }
+}
+
+// Global variable to store pending display media picker resolve function
+let pendingDisplayMediaResolve = null;
+
+// Handle display media picker request from main process
+async function handleDisplayMediaPickerRequest(sources) {
+  console.log('[DisplayMedia] Received picker request with', sources.length, 'sources');
+
+  try {
+    // Show our existing call app picker with the sources
+    const selectedSource = await showCallAppPickerWithSources(sources);
+
+    if (selectedSource) {
+      console.log('[DisplayMedia] User selected:', selectedSource.name);
+      window.electronAPI.sendDisplayMediaSourceSelected(selectedSource.id);
+    } else {
+      console.log('[DisplayMedia] User cancelled picker');
+      window.electronAPI.sendDisplayMediaSourceSelected(null);
+    }
+  } catch (err) {
+    console.error('[DisplayMedia] Picker error:', err);
+    window.electronAPI.sendDisplayMediaSourceSelected(null);
+  }
+}
+
+// Show call app picker with pre-fetched sources (for IPC flow from getDisplayMedia)
+async function showCallAppPickerWithSources(sources) {
+  return new Promise((resolve) => {
+    // Use existing picker modal elements
+    const modal = document.getElementById('call-app-picker');
+    const callAppsGrid = document.getElementById('picker-call-apps-grid');
+    const otherGrid = document.getElementById('picker-other-grid');
+    const cancelBtn = document.getElementById('picker-cancel-btn');
+
+    if (!modal) {
+      console.error('[Picker] Modal not found: call-app-picker');
+      resolve(null);
+      return;
+    }
+
+    console.log('[Picker] Showing picker with', sources.length, 'sources');
+
+    // Clear existing content
+    if (callAppsGrid) callAppsGrid.innerHTML = '';
+    if (otherGrid) otherGrid.innerHTML = '';
+
+    // Categorize sources
+    const screens = sources.filter(s => s.id.startsWith('screen:'));
+    const windows = sources.filter(s => s.id.startsWith('window:'));
+
+    console.log('[Picker] Screens:', screens.length, 'Windows:', windows.length);
+
+    // Add screens to call apps section (they're the primary capture source)
+    screens.forEach(source => {
+      const item = createDisplayMediaPickerItem(source, resolve, modal);
+      if (callAppsGrid) callAppsGrid.appendChild(item);
+    });
+
+    // Add windows to other section
+    windows.forEach(source => {
+      const item = createDisplayMediaPickerItem(source, resolve, modal);
+      if (otherGrid) otherGrid.appendChild(item);
+    });
+
+    // Cancel button handler
+    const handleCancel = () => {
+      modal.style.display = 'none';
+      resolve(null);
+    };
+    if (cancelBtn) {
+      cancelBtn.onclick = handleCancel;
+    }
+
+    // Click outside to cancel
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        handleCancel();
+      }
+    };
+
+    // Show modal
+    modal.style.display = 'flex';
+  });
+}
+
+// Create a picker item element for display media picker
+function createDisplayMediaPickerItem(source, resolve, modal) {
+  const item = document.createElement('div');
+  item.className = 'picker-item';
+  item.dataset.sourceId = source.id;
+  item.dataset.sourceName = source.name;
+
+  // Icon container
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'picker-item-icon';
+
+  // Use thumbnail or app icon
+  if (source.thumbnail) {
+    const img = document.createElement('img');
+    img.src = source.thumbnail;
+    img.alt = source.name;
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '4px';
+    img.onerror = () => {
+      // Fallback to default icon
+      iconDiv.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>';
+    };
+    iconDiv.appendChild(img);
+  } else {
+    // Default screen icon
+    iconDiv.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>';
+  }
+
+  // Name
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'picker-item-name';
+  nameSpan.textContent = source.name.length > 20 ? source.name.substring(0, 20) + '...' : source.name;
+
+  item.appendChild(iconDiv);
+  item.appendChild(nameSpan);
+
+  item.onclick = () => {
+    console.log('[Picker] Selected:', source.name, source.id);
+    modal.style.display = 'none';
+    resolve(source);
+  };
+
+  return item;
 }
 
 // ==================== REP ID MANAGEMENT ====================
@@ -257,7 +411,149 @@ function showMainWidget() {
   console.log('[UI] Showing main widget...');
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('setup-wizard').style.display = 'none';
-  document.getElementById('main-widget').style.display = 'flex';
+
+  const mainWidget = document.getElementById('main-widget');
+  mainWidget.style.display = 'flex';
+
+  // CRITICAL FIX: ALWAYS force remove compact mode class
+  // It should only be added when user explicitly enables it in settings
+  const hadCompactMode = document.body.classList.contains('compact-mode');
+  document.body.classList.remove('compact-mode');
+
+  if (hadCompactMode) {
+    console.warn('[UI] WARNING: compact-mode was ON - forcibly removed!');
+  }
+
+  // Check if compact mode toggle is ON in settings
+  const compactToggle = document.getElementById('compact-mode-toggle');
+  const isCompactModeEnabled = compactToggle?.classList.contains('active') || false;
+
+  console.log('[UI] Compact toggle state:', isCompactModeEnabled ? 'ACTIVE' : 'inactive');
+
+  // ALWAYS force visibility on essential elements with inline styles
+  // This overrides ANY CSS rule that might be hiding them
+  const header = mainWidget.querySelector('.header');
+  const content = mainWidget.querySelector('.content');
+  const footer = mainWidget.querySelector('.footer');
+  const tabNav = mainWidget.querySelector('.tab-nav');
+  const audioConfig = mainWidget.querySelector('.audio-config-section');
+  const toggleSection = mainWidget.querySelector('.toggle-section');
+  const nudgeSection = mainWidget.querySelector('.nudge-section');
+
+  // Force ALL essential elements visible
+  if (header) {
+    header.style.cssText = 'display: flex !important; visibility: visible !important;';
+    console.log('[UI] Header forced visible via inline style');
+  }
+  if (content) {
+    content.style.cssText = 'display: flex !important; flex-direction: column !important; visibility: visible !important;';
+    console.log('[UI] Content forced visible via inline style');
+  }
+  if (footer) {
+    footer.style.cssText = 'display: flex !important; visibility: visible !important;';
+    console.log('[UI] Footer forced visible via inline style');
+  }
+  if (tabNav) {
+    tabNav.style.cssText = 'display: flex !important; visibility: visible !important;';
+    console.log('[UI] Tab nav forced visible via inline style');
+  }
+  if (audioConfig) {
+    audioConfig.style.cssText = 'display: flex !important; flex-direction: column !important; visibility: visible !important;';
+    console.log('[UI] Audio config forced visible via inline style');
+  }
+  if (toggleSection) {
+    toggleSection.style.cssText = 'display: flex !important; visibility: visible !important;';
+    console.log('[UI] Toggle section forced visible via inline style');
+  }
+  if (nudgeSection) {
+    nudgeSection.style.cssText = 'display: flex !important; flex-direction: column !important; visibility: visible !important;';
+    console.log('[UI] Nudge section forced visible via inline style');
+  }
+
+  // DEBUG: Full DOM diagnostic
+  debugMainWidget();
+}
+
+/**
+ * DEBUG FUNCTION - logs full DOM state to diagnose visibility issues
+ */
+function debugMainWidget() {
+  console.log('=== DOM DEBUG ===');
+
+  const mainWidget = document.getElementById('main-widget');
+  console.log('Main widget:', mainWidget);
+  console.log('Main widget display:', mainWidget?.style.display);
+  console.log('Main widget classes:', mainWidget?.className);
+
+  // Log ALL direct children of main-widget
+  if (mainWidget) {
+    console.log('Main widget children:');
+    Array.from(mainWidget.children).forEach((child, i) => {
+      const styles = window.getComputedStyle(child);
+      console.log(`  ${i}: ${child.tagName}.${child.className}`, {
+        display: styles.display,
+        visibility: styles.visibility,
+        opacity: styles.opacity,
+        height: styles.height
+      });
+    });
+  }
+
+  // Check body classes
+  console.log('Body classes:', document.body.className);
+
+  // Check if header exists and its computed style
+  const header = mainWidget?.querySelector('.header');
+  if (header) {
+    const headerStyles = window.getComputedStyle(header);
+    console.log('Header computed:', {
+      display: headerStyles.display,
+      visibility: headerStyles.visibility,
+      height: headerStyles.height,
+      position: headerStyles.position
+    });
+  } else {
+    console.log('Header: NOT FOUND IN DOM');
+  }
+
+  // Check content
+  const content = mainWidget?.querySelector('.content');
+  if (content) {
+    const contentStyles = window.getComputedStyle(content);
+    console.log('Content computed:', {
+      display: contentStyles.display,
+      visibility: contentStyles.visibility,
+      height: contentStyles.height
+    });
+
+    // Check content children
+    console.log('Content children:');
+    Array.from(content.children).forEach((child, i) => {
+      const styles = window.getComputedStyle(child);
+      console.log(`  ${i}: ${child.tagName}.${child.className}`, {
+        display: styles.display,
+        visibility: styles.visibility
+      });
+    });
+  }
+
+  // Check footer
+  const footer = mainWidget?.querySelector('.footer');
+  if (footer) {
+    const footerStyles = window.getComputedStyle(footer);
+    console.log('Footer computed:', {
+      display: footerStyles.display,
+      visibility: footerStyles.visibility
+    });
+  } else {
+    console.log('Footer: NOT FOUND IN DOM');
+  }
+
+  console.log('=== END DOM DEBUG ===');
+
+  // Verify main widget structure and compact mode state
+  const isCompact = document.body.classList.contains('compact-mode');
+  console.log('[UI] Main widget shown. Compact mode:', isCompact);
 
   // Clear old nudges from previous sessions - start fresh
   // Live nudges only - they disappear when widget closes
@@ -319,8 +615,34 @@ function updateAudioConfigDisplay() {
     }
   }
 
-  // Update call app display
-  updateCallAppDisplay();
+  // Update system audio status display
+  updateSystemAudioStatus();
+}
+
+/**
+ * Update the system audio status display
+ * Shows VB-Cable status in the main widget
+ */
+async function updateSystemAudioStatus() {
+  const statusDisplay = document.getElementById('system-audio-display');
+  if (!statusDisplay) return;
+
+  try {
+    const vbCable = await detectVBCable();
+
+    if (vbCable) {
+      statusDisplay.innerHTML = '<span class="status-dot"></span>VB-Cable Ready';
+      statusDisplay.classList.remove('error', 'warning');
+    } else {
+      statusDisplay.innerHTML = '<span class="status-dot"></span>Not configured';
+      statusDisplay.classList.add('warning');
+      statusDisplay.classList.remove('error');
+    }
+  } catch (e) {
+    statusDisplay.innerHTML = '<span class="status-dot"></span>Error detecting';
+    statusDisplay.classList.add('error');
+    statusDisplay.classList.remove('warning');
+  }
 }
 
 // ==================== WINDOW CONTROLS ====================
@@ -399,6 +721,96 @@ function setupWindowControls() {
     hideCallAppPicker();
   });
 
+  // System Audio Setup menu item - opens VB-Cable setup modal
+  document.getElementById('menu-system-audio')?.addEventListener('click', () => {
+    console.log('[Settings] Opening system audio setup...');
+    settingsDropdown?.classList.remove('show');
+    settingsBtn?.classList.remove('active');
+    showVBCableSetupModal();
+  });
+
+  // Audio Help menu item - opens Listen setup guide
+  document.getElementById('menu-audio-help')?.addEventListener('click', () => {
+    console.log('[Settings] Opening audio help guide...');
+    settingsDropdown?.classList.remove('show');
+    settingsBtn?.classList.remove('active');
+    showListenSetupModal();
+  });
+
+  // Audio Help link in main widget
+  document.getElementById('audio-help-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    console.log('[Audio] Help link clicked');
+    showListenSetupModal();
+  });
+
+  // Audio Warning dismiss button
+  document.getElementById('dismiss-audio-warning')?.addEventListener('click', () => {
+    const audioWarning = document.getElementById('audio-warning');
+    if (audioWarning) audioWarning.style.display = 'none';
+    // Remember dismissal for this session
+    localStorage.setItem('callsteer_audio_warning_dismissed', 'true');
+  });
+
+  // Compact Mode toggle
+  document.getElementById('menu-compact-mode')?.addEventListener('click', async (e) => {
+    e.stopPropagation(); // Don't close dropdown
+    const toggle = document.getElementById('compact-mode-toggle');
+    const isCurrentlyCompact = toggle?.classList.contains('active');
+    const newCompactState = !isCurrentlyCompact;
+
+    // Update toggle UI
+    if (toggle) {
+      toggle.classList.toggle('active', newCompactState);
+    }
+
+    // Update body class
+    document.body.classList.toggle('compact-mode', newCompactState);
+
+    // Clear any inline styles so CSS rules take over properly
+    const mainWidget = document.getElementById('main-widget');
+    if (mainWidget) {
+      const header = mainWidget.querySelector('.header');
+      const content = mainWidget.querySelector('.content');
+      const footer = mainWidget.querySelector('.footer');
+      const tabNav = mainWidget.querySelector('.tab-nav');
+      const audioConfig = mainWidget.querySelector('.audio-config-section');
+      const toggleSection = mainWidget.querySelector('.toggle-section');
+
+      // Remove inline display styles - let CSS handle it
+      [header, content, footer, tabNav, audioConfig, toggleSection].forEach(el => {
+        if (el) el.style.display = '';
+      });
+    }
+
+    // Save preference via IPC
+    if (window.electronAPI?.setCompactMode) {
+      await window.electronAPI.setCompactMode(newCompactState);
+    }
+
+    console.log('[Settings] Compact mode:', newCompactState ? 'ON' : 'OFF');
+  });
+
+  // Nudge Sound toggle
+  document.getElementById('menu-nudge-sound')?.addEventListener('click', (e) => {
+    e.stopPropagation(); // Don't close dropdown
+    const toggle = document.getElementById('nudge-sound-toggle');
+    const isCurrentlyEnabled = toggle?.classList.contains('active');
+    const newSoundState = !isCurrentlyEnabled;
+
+    // Update toggle UI
+    if (toggle) {
+      toggle.classList.toggle('active', newSoundState);
+    }
+
+    // Save preference to localStorage
+    try {
+      localStorage.setItem('callsteer_nudge_sound', newSoundState ? 'on' : 'off');
+    } catch (e) {}
+
+    console.log('[Settings] Nudge sound:', newSoundState ? 'ON' : 'OFF');
+  });
+
   // Sign Out menu item
   document.getElementById('menu-signout')?.addEventListener('click', () => {
     settingsDropdown?.classList.remove('show');
@@ -411,6 +823,83 @@ function setupWindowControls() {
     console.log('[Audio Config] Mic row clicked, opening wizard...');
     showSetupWizard();
   });
+
+  // Setup resize handles for frameless window
+  setupResizeHandles();
+}
+
+/**
+ * Setup custom resize handles for frameless window
+ * Uses delta-based approach for smooth, responsive resizing
+ */
+/**
+ * Setup GLOBAL resize handles - these live on the body and work on ALL screens
+ * (login, setup wizard, main widget, etc.)
+ */
+function setupGlobalResizeHandles() {
+  // Remove any existing resize handles first (from widgets or body)
+  document.querySelectorAll('.resize-handle').forEach(el => el.remove());
+
+  const edges = ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
+  edges.forEach(edge => {
+    const handle = document.createElement('div');
+    handle.className = `resize-handle resize-handle-${edge} global-resize-handle`;
+    if (edge.includes('-')) {
+      handle.classList.add('resize-handle-corner');
+    }
+    handle.dataset.direction = edge;
+
+    // CRITICAL: Append to BODY, not any widget container
+    document.body.appendChild(handle);
+
+    let startX, startY;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      startX = e.screenX;
+      startY = e.screenY;
+
+      // Add active class for visual feedback
+      handle.classList.add('active');
+      document.body.style.cursor = getComputedStyle(handle).cursor;
+
+      const onMouseMove = (moveEvent) => {
+        const deltaX = moveEvent.screenX - startX;
+        const deltaY = moveEvent.screenY - startY;
+
+        // Update start position for next delta
+        startX = moveEvent.screenX;
+        startY = moveEvent.screenY;
+
+        // Send delta to main process (synchronous, no async lag)
+        if (window.electronAPI?.resizeWindowDelta) {
+          window.electronAPI.resizeWindowDelta(deltaX, deltaY, edge);
+        }
+      };
+
+      const onMouseUp = () => {
+        handle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  });
+
+  console.log('[Resize] Global resize handles initialized on body - work on ALL screens');
+}
+
+// Legacy function - now just calls the global version
+function setupResizeHandles() {
+  // Resize handles are now global, setup once on init
+  // This function is kept for backwards compatibility
+  console.log('[Resize] setupResizeHandles called - handles already global');
 }
 
 /**
@@ -425,6 +914,102 @@ function updateSettingsDropdownInfo() {
   }
   if (companyEl) {
     companyEl.textContent = clientInfo?.company_name || 'No company';
+  }
+
+  // Also update the header greeting
+  updateGreeting();
+}
+
+/**
+ * Update the header greeting with personalized rep name
+ */
+function updateGreeting() {
+  const greetingEl = document.getElementById('user-greeting');
+  if (!greetingEl) return;
+
+  // Use the global repName from state, or fall back to repId
+  const rawName = repName || repId || '';
+
+  if (!rawName || rawName === 'undefined') {
+    greetingEl.innerHTML = '';
+    return;
+  }
+
+  // Extract first name from formats like "stephen_abc123", "Stephen Smith", "John S"
+  let firstName = rawName;
+
+  // Remove any suffix after underscore (like _abc123)
+  firstName = firstName.split('_')[0];
+
+  // Take first word/part if space-separated
+  firstName = firstName.split(' ')[0];
+
+  // Capitalize first letter, lowercase rest
+  firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+
+  // Set the greeting
+  if (firstName && firstName !== 'Undefined' && firstName.length > 0) {
+    greetingEl.innerHTML = `Hi, <span class="rep-name">${firstName}</span>`;
+  } else {
+    greetingEl.innerHTML = '';
+  }
+}
+
+/**
+ * Load compact mode preference from main process storage
+ * CRITICAL: Defaults to FALSE - compact mode must be EXPLICITLY enabled
+ */
+async function loadCompactModePreference() {
+  try {
+    let isCompact = false; // DEFAULT: compact mode OFF
+
+    if (window.electronAPI?.getCompactMode) {
+      const savedCompact = await window.electronAPI.getCompactMode();
+      // Only enable if EXPLICITLY saved as true
+      isCompact = savedCompact === true;
+      console.log('[Init] Compact mode preference from storage:', savedCompact, '-> using:', isCompact);
+    } else {
+      console.log('[Init] No electronAPI.getCompactMode - defaulting to full mode');
+    }
+
+    // Update toggle UI
+    const toggle = document.getElementById('compact-mode-toggle');
+    if (toggle) {
+      toggle.classList.toggle('active', isCompact);
+    }
+
+    // Update body class - ONLY add if explicitly true, always remove if false
+    if (isCompact) {
+      document.body.classList.add('compact-mode');
+      console.log('[Init] Compact mode ENABLED');
+    } else {
+      document.body.classList.remove('compact-mode');
+      console.log('[Init] Full mode ENABLED (compact mode removed)');
+    }
+  } catch (e) {
+    console.error('[Init] Failed to load compact mode preference:', e);
+    // On error, ensure full mode
+    document.body.classList.remove('compact-mode');
+  }
+}
+
+/**
+ * Load nudge sound preference from localStorage
+ */
+function loadNudgeSoundPreference() {
+  try {
+    const soundSetting = localStorage.getItem('callsteer_nudge_sound');
+    // Default to ON if not set
+    const isEnabled = soundSetting !== 'off';
+    console.log('[Init] Nudge sound preference:', isEnabled ? 'ON' : 'OFF');
+
+    // Update toggle UI
+    const toggle = document.getElementById('nudge-sound-toggle');
+    if (toggle) {
+      toggle.classList.toggle('active', isEnabled);
+    }
+  } catch (e) {
+    console.error('[Init] Failed to load nudge sound preference:', e);
   }
 }
 
@@ -685,13 +1270,28 @@ function setupSetupWizard() {
     if (window.electronAPI) window.electronAPI.minimizeWindow();
   });
 
-  // Back button goes to login
-  document.getElementById('setup-back-btn')?.addEventListener('click', () => {
-    console.log('[Setup] Back button clicked');
-    showLoginScreen();
+  // Step 0: Setup choice buttons
+  document.getElementById('btn-use-chrome-extension')?.addEventListener('click', () => {
+    console.log('[Setup] User chose Chrome Extension');
+    localStorage.setItem('callsteer_setup_choice', 'chrome-extension');
+    openChromeExtension();
+    // Minimize or close the desktop app
+    if (window.electronAPI) window.electronAPI.minimizeWindow();
   });
 
-  // Next button goes to step 2
+  document.getElementById('btn-continue-desktop')?.addEventListener('click', () => {
+    console.log('[Setup] User chose Desktop App');
+    localStorage.setItem('callsteer_setup_choice', 'desktop');
+    showSetupStep(1);
+  });
+
+  // Step 1: Back button goes to step 0
+  document.getElementById('setup-back-btn')?.addEventListener('click', () => {
+    console.log('[Setup] Back button clicked - going to step 0');
+    showSetupStep(0);
+  });
+
+  // Step 1: Next button goes to step 2 (Listen setup)
   const nextBtn = document.getElementById('setup-next-btn');
   console.log('[Setup] Next button element:', nextBtn);
 
@@ -702,18 +1302,47 @@ function setupSetupWizard() {
     console.error('[Setup] Next button not found!');
   }
 
-  // Step 2 back button
-  const step2BackBtn = document.getElementById('setup-step2-back-btn');
-  if (step2BackBtn) {
-    step2BackBtn.addEventListener('click', () => {
-      showSetupStep(1);
-    });
-  }
+  // Step 2: Listen setup buttons
+  document.getElementById('open-sound-settings-btn')?.addEventListener('click', () => {
+    console.log('[Setup] Opening Windows Sound Settings');
+    openSoundSettings();
+  });
 
-  // Done button finishes setup
+  document.getElementById('setup-step2-back-btn')?.addEventListener('click', () => {
+    showSetupStep(1);
+  });
+
+  document.getElementById('setup-skip-listen-btn')?.addEventListener('click', () => {
+    console.log('[Setup] User skipped Listen setup');
+    showSetupStep(3);
+  });
+
+  document.getElementById('setup-listen-done-btn')?.addEventListener('click', () => {
+    console.log('[Setup] User completed Listen setup');
+    showSetupStep(3);
+  });
+
+  // Step 3: Back button and Done button
+  document.getElementById('setup-step3-back-btn')?.addEventListener('click', () => {
+    showSetupStep(2);
+  });
+
   const doneBtn = document.getElementById('setup-done-btn');
   if (doneBtn) {
     doneBtn.addEventListener('click', handleSetupDone);
+  }
+}
+
+// Open Windows Sound Settings (mmsys.cpl)
+function openSoundSettings() {
+  if (window.electronAPI?.runCommand) {
+    // Open mmsys.cpl via shell command
+    window.electronAPI.runCommand('mmsys.cpl');
+  } else if (window.electronAPI?.openExternal) {
+    // Fallback - try opening as a URL (may not work for .cpl files)
+    window.electronAPI.openExternal('mmsys.cpl');
+  } else {
+    showToast('Open Sound Settings from Control Panel', 'info');
   }
 }
 
@@ -723,7 +1352,7 @@ let micTestAnalyzer = null;
 let micTestAnimationFrame = null;
 
 function handleSetupNext() {
-  console.log('[Setup] Next button clicked - going to step 2');
+  console.log('[Setup] Next button clicked - going to step 2 (Listen setup)');
   console.log('[Setup] selectedMicId:', selectedMicId);
 
   if (!selectedMicId) {
@@ -742,7 +1371,7 @@ function handleSetupNext() {
   }
   saveSelectedDevices();
 
-  // Show step 2
+  // Show step 2 (Listen setup)
   showSetupStep(2);
 }
 
@@ -752,17 +1381,36 @@ function handleSetupDone() {
 }
 
 function showSetupStep(step) {
+  const step0 = document.getElementById('setup-step-0');
   const step1 = document.getElementById('setup-step-1');
   const step2 = document.getElementById('setup-step-2');
+  const step3 = document.getElementById('setup-step-3');
 
-  if (step === 1) {
-    step1.style.display = 'flex';
-    step2.style.display = 'none';
-    // Restart mic test
-    startMicTest();
-  } else {
-    step1.style.display = 'none';
-    step2.style.display = 'flex';
+  // Hide all steps first
+  if (step0) step0.style.display = 'none';
+  if (step1) step1.style.display = 'none';
+  if (step2) step2.style.display = 'none';
+  if (step3) step3.style.display = 'none';
+
+  // Show the requested step
+  switch (step) {
+    case 0:
+      if (step0) step0.style.display = 'flex';
+      stopMicTest();
+      break;
+    case 1:
+      if (step1) step1.style.display = 'flex';
+      // Start mic test
+      startMicTest();
+      break;
+    case 2:
+      if (step2) step2.style.display = 'flex';
+      stopMicTest();
+      break;
+    case 3:
+      if (step3) step3.style.display = 'flex';
+      stopMicTest();
+      break;
   }
 }
 
@@ -772,8 +1420,16 @@ function showSetupWizard() {
   document.getElementById('main-widget').style.display = 'none';
   document.getElementById('setup-wizard').style.display = 'flex';
 
-  // Show step 1
-  showSetupStep(1);
+  // Check if user has already made a setup choice
+  const savedChoice = localStorage.getItem('callsteer_setup_choice');
+
+  if (savedChoice === 'desktop') {
+    // User already chose desktop, go directly to mic selection
+    showSetupStep(1);
+  } else {
+    // Show setup choice screen (step 0)
+    showSetupStep(0);
+  }
 
   // Reset next button to disabled state
   const nextBtn = document.getElementById('setup-next-btn');
@@ -1004,12 +1660,17 @@ async function toggleListening() {
     // Update UI to OFF state
     powerToggle?.classList.remove('active');
     document.getElementById('main-widget')?.classList.remove('listening');
+    document.body.classList.remove('is-listening'); // Remove glow effect
     if (toggleStatus) {
       toggleStatus.classList.remove('active');
       toggleStatus.textContent = 'OFF';
     }
     if (toggleHint) toggleHint.textContent = 'Tap to start listening';
     if (listeningAnimation) listeningAnimation.style.display = 'none';
+
+    // Hide audio warning banner when turning off
+    const audioWarning = document.getElementById('audio-warning');
+    if (audioWarning) audioWarning.style.display = 'none';
 
     // Update empty state text
     updateNudgeEmptyState();
@@ -1035,12 +1696,20 @@ async function toggleListening() {
     // Update UI to ON state first
     powerToggle?.classList.add('active');
     document.getElementById('main-widget')?.classList.add('listening');
+    document.body.classList.add('is-listening'); // For glow effect
     if (toggleStatus) {
       toggleStatus.classList.add('active');
       toggleStatus.textContent = 'ON';
     }
     if (toggleHint) toggleHint.textContent = 'Starting audio capture...';
     if (listeningAnimation) listeningAnimation.style.display = 'flex';
+
+    // Show audio warning banner (VB-Cable captures all system audio)
+    const audioWarning = document.getElementById('audio-warning');
+    const warningDismissed = localStorage.getItem('callsteer_audio_warning_dismissed');
+    if (audioWarning && !warningDismissed) {
+      audioWarning.style.display = 'flex';
+    }
 
     // Update empty state text
     updateNudgeEmptyState();
@@ -1379,6 +2048,12 @@ function displayNudge(nudge) {
   voteUpBtn?.classList.remove('voted');
   voteDownBtn?.classList.remove('voted');
 
+  // Clear any existing auto-dismiss timer
+  if (nudgeAutoDismissTimer) {
+    clearTimeout(nudgeAutoDismissTimer);
+    nudgeAutoDismissTimer = null;
+  }
+
   if (!nudge) {
     nudgeCard.style.display = 'none';
     nudgeEmpty.style.display = 'flex';
@@ -1414,6 +2089,19 @@ function displayNudge(nudge) {
   nudgeCard.style.animation = 'none';
   nudgeCard.offsetHeight; // Trigger reflow
   nudgeCard.style.animation = 'nudgeAppear 0.4s ease-out';
+
+  // Start 60-second auto-dismiss timer for ignored nudges
+  nudgeAutoDismissTimer = setTimeout(() => {
+    console.log('[Nudge] Auto-dismissing after 60 seconds (ignored)');
+    // Mark as dismissed in backend
+    if (currentNudge?.nudge_id) {
+      sendNudgeFeedback(currentNudge.nudge_id, 'dismissed');
+    }
+    // Reset streak since nudge was ignored
+    currentStreak = 0;
+    saveRebuttalStats();
+    dismissCurrentNudge();
+  }, NUDGE_IGNORE_TIMEOUT_MS);
 }
 
 // ==================== NUDGE POPUP (Compact Mode) ====================
@@ -1599,6 +2287,36 @@ async function voteOnNudge(vote) {
 
 // Track last customer transcript for vote context
 let lastCustomerTranscript = null;
+
+/**
+ * Send feedback/status for a nudge (dismissed, copied, etc.)
+ */
+async function sendNudgeFeedback(nudgeId, action) {
+  if (!nudgeId) return;
+
+  console.log(`[Feedback] Sending ${action} for nudge: ${nudgeId}`);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nudge_id: nudgeId,
+        feedback: action,
+        client_code: clientCode,
+        rep_id: repId
+      })
+    });
+
+    if (response.ok) {
+      console.log(`[Feedback] ${action} recorded for nudge: ${nudgeId}`);
+    } else {
+      console.error('[Feedback] Failed:', response.status);
+    }
+  } catch (error) {
+    console.error('[Feedback] Error:', error);
+  }
+}
 
 // ==================== TABS ====================
 
@@ -1884,12 +2602,65 @@ function isToday(timestamp) {
   return date.toDateString() === today.toDateString();
 }
 
-function playNotificationSound() {
+/**
+ * Check if nudge sounds are enabled
+ */
+function isNudgeSoundEnabled() {
   try {
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTUIGWi77eeeTRAMUKfj8LZjHAY4ktfzyn0tBSh+zPLaizsKF2S96+qoVRQLR6Hh8r1sIAUrgc7y2Yk1CBlou+3nnk0QDFC46fC2YxwGOJLX88p9LQUofszy2os7ChdjvevqqFUUC0eh4fK9bCAFK4HO8tmJNQgZaLvt555NEAxQuOnwtmMcBjiS1/PKfS0FKH7M8tqLOwoXY73r6qhVFAtHoeHyvWwgBSuBzvLZiTUIGWi77eeeTRAMULjp8LZjHAY4ktfzyn0tBSh+zPLaizsKF2O96+qoVRQLR6Hh8r1sIAU=');
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-  } catch (e) {}
+    const setting = localStorage.getItem('callsteer_nudge_sound');
+    // Default to ON if not set
+    return setting !== 'off';
+  } catch (e) {
+    return true;
+  }
+}
+
+/**
+ * Play subtle notification sound when a new nudge appears
+ * Uses Web Audio API for a clean, pleasant synthesized tone
+ */
+function playNotificationSound() {
+  // Check if sounds are enabled
+  if (!isNudgeSoundEnabled()) {
+    console.log('[Audio] Nudge sound disabled, skipping');
+    return;
+  }
+
+  try {
+    // Use Web Audio API for a clean, pleasant synthesized notification
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Create a soft "pop" notification sound (like Slack or iMessage)
+    const playTone = (frequency, startTime, duration, volume = 0.12) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Triangle wave for a softer tone
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+
+      // Gentle envelope - soft attack, quick decay
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.015); // Very quick fade in
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration); // Smooth fade out
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    const now = audioContext.currentTime;
+
+    // Soft ascending "pop" - E5 to A5 (pleasant major third interval)
+    playTone(659, now, 0.12, 0.1);         // E5 - first note
+    playTone(880, now + 0.05, 0.15, 0.12); // A5 - second note
+
+    console.log('[Audio] Played nudge notification sound');
+  } catch (e) {
+    console.log('[Audio] Notification sound failed:', e);
+  }
 }
 
 // ==================== CALL APP PICKER ====================
@@ -2270,6 +3041,12 @@ function checkRebuttalMatch(repTranscript) {
  * NOTE: Does NOT auto-dismiss - rep can keep reading the full suggestion
  */
 function onRebuttalUsed() {
+  // Clear the auto-dismiss timer since nudge was adopted
+  if (nudgeAutoDismissTimer) {
+    clearTimeout(nudgeAutoDismissTimer);
+    nudgeAutoDismissTimer = null;
+  }
+
   // Increment counters
   rebuttalsUsedToday++;
   rebuttalsUsedTotal++;
@@ -2355,13 +3132,13 @@ function showRebuttalSuccess() {
   checkmark.className = 'rebuttal-checkmark-badge';
   checkmark.innerHTML = `
     <svg viewBox="0 0 24 24" width="20" height="20">
-      <circle cx="12" cy="12" r="10" fill="#34C759"/>
+      <circle cx="12" cy="12" r="10" fill="#00C8D4"/>
       <path fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 12l3 3 7-7"/>
     </svg>
   `;
   nudgeCard.appendChild(checkmark);
 
-  // After 4 seconds, fade out checkmark and auto-dismiss nudge
+  // After 2 seconds, fade out checkmark and auto-dismiss nudge
   setTimeout(() => {
     checkmark.classList.add('fade-out');
     setTimeout(() => {
@@ -2370,13 +3147,19 @@ function showRebuttalSuccess() {
       // Auto-dismiss the nudge after rep has had time to finish reading
       dismissCurrentNudge();
     }, 300);
-  }, 4000); // 4 second delay before clearing
+  }, 2000); // 2 second delay before clearing
 }
 
 /**
  * Play subtle success sound - pleasant two-tone chime
  */
 function playSuccessSound() {
+  // Check if sounds are enabled
+  if (!isNudgeSoundEnabled()) {
+    console.log('[Audio] Nudge sound disabled, skipping success sound');
+    return;
+  }
+
   try {
     // Use Web Audio API for a clean, pleasant synthesized chime
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -2689,17 +3472,1134 @@ function startMicRecording() {
 }
 
 // ==================== SYSTEM AUDIO CAPTURE (CUSTOMER VOICE) ====================
-// Uses getDisplayMedia with audio - same approach that works in Chrome
-// Electron 39+ supports this with proper flags
+// Priority order:
+// 1. VB-Cable (most reliable on Windows)
+// 2. Direct WASAPI loopback via electron-audio-loopback
+// 3. getDisplayMedia fallback (requires screen picker)
+
+// ==================== VB-CABLE DETECTION & CAPTURE ====================
+
+// Detect VB-Cable virtual audio device
+async function detectVBCable() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    console.log('[VB-Cable] Checking', devices.length, 'audio devices...');
+
+    const vbCable = devices.find(d =>
+      d.kind === 'audioinput' &&
+      (d.label.toLowerCase().includes('cable output') ||
+       d.label.toLowerCase().includes('vb-audio') ||
+       d.label.toLowerCase().includes('virtual cable'))
+    );
+
+    if (vbCable) {
+      console.log('[VB-Cable] Found:', vbCable.label, vbCable.deviceId);
+    } else {
+      console.log('[VB-Cable] Not found. Available inputs:',
+        devices.filter(d => d.kind === 'audioinput').map(d => d.label).join(', '));
+    }
+
+    return vbCable || null;
+  } catch (e) {
+    console.error('[VB-Cable] Detection error:', e);
+    return null;
+  }
+}
+
+// Capture audio from VB-Cable device
+async function captureVBCable(deviceId) {
+  console.log('[VB-Cable] Capturing from device:', deviceId);
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      deviceId: { exact: deviceId },
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }
+  });
+  console.log('[VB-Cable] Capture successful, tracks:', stream.getAudioTracks().length);
+  return stream;
+}
+
+// VB-Cable test state
+let vbCableTestStream = null;
+let vbCableTestAnalyser = null;
+let vbCableTestAnimationId = null;
+let vbCableAudioDetected = false;
+let vbCableNoAudioTimeout = null;
+
+// Show VB-Cable setup modal (Step 1: Installation)
+function showVBCableSetupModal() {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('vbcable-modal');
+  if (existingModal) existingModal.remove();
+  cleanupVBCableTest();
+
+  const modal = document.createElement('div');
+  modal.id = 'vbcable-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content vbcable-setup">
+      <div class="modal-header">
+        <h3>🎧 Customer Audio Setup</h3>
+        <span class="modal-step-indicator">Step 1 of 2</span>
+        <button class="modal-close" onclick="closeVBCableModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="setup-requirement-notice">
+          <span class="requirement-icon">⚠️</span>
+          <p>To capture <strong>customer audio</strong> from your dialer, VB-Cable is required (free, one-time setup)</p>
+        </div>
+
+        <p class="setup-time-notice">
+          ⏱️ This is a <strong>one-time 2-minute setup</strong>. After this, CallSteer will work automatically.
+        </p>
+
+        <div class="audio-routing-explainer">
+          <div class="routing-item">
+            <span class="routing-icon">🎤</span>
+            <div class="routing-text">
+              <strong>Your Microphone</strong> → captures YOUR voice (the rep)
+            </div>
+          </div>
+          <div class="routing-item">
+            <span class="routing-icon">🔊</span>
+            <div class="routing-text">
+              <strong>VB-Cable</strong> → captures CUSTOMER voice from dialer
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-steps">
+          <div class="step">
+            <span class="step-num">1</span>
+            <span>Download & install VB-Cable from vb-audio.com (free)</span>
+          </div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <span>Restart your computer after installation</span>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <span>In your <strong>dialer's SPEAKER settings</strong>, select <strong>"CABLE Input (VB-Audio)"</strong></span>
+          </div>
+        </div>
+
+        <div class="setup-diagram">
+          <div class="diagram-section">
+            <div class="diagram-label">Customer Audio Flow:</div>
+            <div class="diagram-flow">
+              <span class="diagram-box">Dialer Speaker</span>
+              <span class="diagram-arrow">→</span>
+              <span class="diagram-box highlight">CABLE Input</span>
+              <span class="diagram-arrow">→</span>
+              <span class="diagram-box highlight">CABLE Output</span>
+              <span class="diagram-arrow">→</span>
+              <span class="diagram-box accent">CallSteer</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-important-note">
+          <strong>⚠️ Important:</strong>
+          <ul>
+            <li>Do NOT change your microphone settings</li>
+            <li>Only change your dialer's <strong>speaker/output</strong> device</li>
+            <li>You'll still hear the customer in your headphones</li>
+          </ul>
+        </div>
+
+        <div class="dialer-examples">
+          <div class="dialer-examples-label">Quick Setup for Common Dialers:</div>
+          <div class="dialer-list">
+            <span class="dialer-item"><strong>Zoom:</strong> Settings → Audio → Speaker</span>
+            <span class="dialer-item"><strong>Dialpad:</strong> Settings → Audio → Output</span>
+            <span class="dialer-item"><strong>Google Meet:</strong> Settings → Audio → Speaker</span>
+            <span class="dialer-item"><strong>Teams:</strong> Settings → Devices → Speaker</span>
+          </div>
+        </div>
+
+        <div class="chrome-extension-alternative">
+          <div class="alternative-divider">
+            <span>OR</span>
+          </div>
+          <div class="alternative-content">
+            <span class="alternative-icon">✨</span>
+            <div class="alternative-text">
+              <strong>Want zero setup?</strong>
+              <p>Try our Chrome extension instead - works instantly with web-based dialers!</p>
+            </div>
+            <button class="btn-chrome" onclick="openChromeExtension()">Use Chrome Extension</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeVBCableModal()">Cancel</button>
+        <button class="btn-secondary" onclick="recheckVBCable()">I've Installed It</button>
+        <button class="btn-primary" onclick="downloadVBCable()">Download VB-Cable</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Add styles if not already present
+  if (!document.getElementById('vbcable-modal-styles')) {
+    const styles = document.createElement('style');
+    styles.id = 'vbcable-modal-styles';
+    styles.textContent = `
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+      }
+      .modal-content.vbcable-setup {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(0, 199, 190, 0.3);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 420px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+      }
+      .modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        color: #fff;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+      }
+      .modal-close:hover { color: #fff; }
+      .modal-body {
+        padding: 20px;
+        color: #ccc;
+        font-size: 13px;
+        line-height: 1.5;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .modal-footer {
+        padding: 16px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      }
+      .setup-steps {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .step:last-child { border-bottom: none; }
+      .step-num {
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        color: #fff;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+      .setup-diagram {
+        background: rgba(0, 199, 190, 0.1);
+        border: 1px solid rgba(0, 199, 190, 0.2);
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+      .diagram-flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .diagram-box {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .diagram-box.highlight {
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        color: #fff;
+      }
+      .diagram-arrow {
+        color: #00c7be;
+        font-size: 16px;
+      }
+      .modal-footer {
+        display: flex;
+        gap: 8px;
+        padding: 16px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        justify-content: flex-end;
+      }
+      .modal-footer button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        border: none;
+        color: #fff;
+      }
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 199, 190, 0.4);
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ccc;
+      }
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+      }
+      .modal-step-indicator {
+        font-size: 11px;
+        color: var(--nav-teal, #00c7be);
+        background: rgba(0, 199, 190, 0.15);
+        padding: 3px 8px;
+        border-radius: 10px;
+        margin-left: auto;
+        margin-right: 12px;
+      }
+      /* Audio test styles */
+      .audio-test-section {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+        text-align: center;
+      }
+      .audio-meter-container {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 6px;
+        height: 24px;
+        overflow: hidden;
+        margin: 12px 0;
+        position: relative;
+      }
+      .audio-meter-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00c7be, #4a90d9, #34c759);
+        transition: width 0.05s ease-out;
+        border-radius: 6px;
+      }
+      .audio-meter-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.6);
+        z-index: 1;
+      }
+      .audio-test-status {
+        font-size: 12px;
+        margin-top: 8px;
+        min-height: 18px;
+      }
+      .audio-test-status.success {
+        color: #34c759;
+      }
+      .audio-test-status.warning {
+        color: #ff9f0a;
+      }
+      .audio-test-status.error {
+        color: #ff453a;
+      }
+      .audio-test-hint {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+        margin-top: 8px;
+      }
+      .detected-device {
+        background: rgba(0, 199, 190, 0.15);
+        border: 1px solid rgba(0, 199, 190, 0.3);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .detected-device-icon {
+        color: #00c7be;
+        font-size: 18px;
+      }
+      .detected-device-info {
+        flex: 1;
+        text-align: left;
+      }
+      .detected-device-label {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+      }
+      .detected-device-name {
+        font-size: 12px;
+        color: #fff;
+      }
+      /* Requirement and time notices */
+      .setup-requirement-notice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255, 159, 10, 0.15);
+        border: 1px solid rgba(255, 159, 10, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .setup-requirement-notice .requirement-icon {
+        font-size: 20px;
+      }
+      .setup-requirement-notice p {
+        margin: 0;
+        font-size: 13px;
+        color: #fff;
+      }
+      .setup-time-notice {
+        font-size: 12px;
+        color: #34c759;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(52, 199, 89, 0.1);
+        border-radius: 6px;
+      }
+      /* Chrome extension alternative */
+      .chrome-extension-alternative {
+        margin-top: 16px;
+        padding-top: 8px;
+      }
+      .alternative-divider {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .alternative-divider::before,
+      .alternative-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .alternative-divider span {
+        padding: 0 12px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .alternative-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(66, 133, 244, 0.1);
+        border: 1px solid rgba(66, 133, 244, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .alternative-icon {
+        font-size: 24px;
+      }
+      .alternative-text {
+        flex: 1;
+      }
+      .alternative-text strong {
+        display: block;
+        color: #fff;
+        font-size: 13px;
+        margin-bottom: 2px;
+      }
+      .alternative-text p {
+        margin: 0;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .btn-chrome {
+        background: linear-gradient(135deg, #4285f4, #34a853);
+        border: none;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+      }
+      .btn-chrome:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
+      }
+      /* Audio routing explainer */
+      .audio-routing-explainer {
+        background: rgba(0, 199, 190, 0.08);
+        border: 1px solid rgba(0, 199, 190, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .routing-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+      }
+      .routing-item:first-child {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+      }
+      .routing-icon {
+        font-size: 18px;
+      }
+      .routing-text {
+        font-size: 12px;
+        color: #fff;
+      }
+      .routing-text strong {
+        color: var(--nav-teal, #00c7be);
+      }
+      /* Important note box */
+      .setup-important-note {
+        background: rgba(255, 159, 10, 0.1);
+        border: 1px solid rgba(255, 159, 10, 0.25);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 12px 0;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.9);
+      }
+      .setup-important-note strong {
+        color: #ff9f0a;
+        display: block;
+        margin-bottom: 6px;
+      }
+      .setup-important-note ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .setup-important-note li {
+        margin: 3px 0;
+        color: rgba(255, 255, 255, 0.8);
+      }
+      /* Dialer examples */
+      .dialer-examples {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 12px 0;
+      }
+      .dialer-examples-label {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 8px;
+      }
+      .dialer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .dialer-item {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .dialer-item strong {
+        color: var(--nav-teal, #00c7be);
+      }
+      /* Diagram section label */
+      .diagram-section {
+        text-align: center;
+      }
+      .diagram-label {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .diagram-box.accent {
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        color: #fff;
+        font-weight: 600;
+      }
+      /* Test instructions */
+      .test-instructions {
+        background: rgba(0, 199, 190, 0.08);
+        border: 1px solid rgba(0, 199, 190, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .test-instructions p {
+        margin: 0 0 8px 0;
+        font-size: 13px;
+        color: #fff;
+      }
+      .test-instructions ol {
+        margin: 0;
+        padding-left: 20px;
+      }
+      .test-instructions li {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.85);
+        margin: 4px 0;
+      }
+      .test-instructions strong {
+        color: var(--nav-teal, #00c7be);
+      }
+      /* Success state styling */
+      .setup-success-notice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(52, 199, 89, 0.15);
+        border: 1px solid rgba(52, 199, 89, 0.3);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .setup-success-notice .success-icon {
+        font-size: 32px;
+      }
+      .setup-success-notice .success-text h4 {
+        margin: 0 0 4px 0;
+        font-size: 16px;
+        color: #34c759;
+      }
+      .setup-success-notice .success-text p {
+        margin: 0;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+    `;
+    document.head.appendChild(styles);
+  }
+}
+
+// Show VB-Cable test modal (Step 2: Test Audio)
+function showVBCableTestModal(vbCableDevice) {
+  const existingModal = document.getElementById('vbcable-modal');
+  if (existingModal) existingModal.remove();
+  cleanupVBCableTest();
+
+  vbCableAudioDetected = false;
+
+  const modal = document.createElement('div');
+  modal.id = 'vbcable-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content vbcable-setup">
+      <div class="modal-header">
+        <h3>🎧 Test Customer Audio</h3>
+        <span class="modal-step-indicator">Step 2 of 2</span>
+        <button class="modal-close" onclick="closeVBCableModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="detected-device">
+          <span class="detected-device-icon">✓</span>
+          <div class="detected-device-info">
+            <div class="detected-device-label">VB-Cable Detected</div>
+            <div class="detected-device-name">${vbCableDevice.label || 'CABLE Output (VB-Audio)'}</div>
+          </div>
+        </div>
+
+        <div class="test-instructions">
+          <p><strong>Testing Customer Audio Capture:</strong></p>
+          <ol>
+            <li>Start a test call or play audio in your dialer</li>
+            <li>The meter below should move when the <strong>CUSTOMER speaks</strong></li>
+            <li>Your own voice should <strong>NOT</strong> move this meter</li>
+          </ol>
+        </div>
+
+        <div class="audio-test-section">
+          <div class="audio-meter-container">
+            <span class="audio-meter-label" id="vbcable-meter-label">Waiting for customer audio...</span>
+            <div class="audio-meter-bar" id="vbcable-meter-bar"></div>
+          </div>
+          <div class="audio-test-status" id="vbcable-test-status">Listening for customer audio...</div>
+          <div class="audio-test-hint">Make sure your dialer's speaker is set to "CABLE Input"</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="showVBCableSetupModal()">← Back</button>
+        <button class="btn-primary" id="vbcable-continue-btn" onclick="finishVBCableSetup()" disabled>Continue</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Start audio test
+  startVBCableAudioTest(vbCableDevice);
+}
+
+// Start VB-Cable audio test with level monitoring
+async function startVBCableAudioTest(vbCableDevice) {
+  try {
+    console.log('[VB-Cable Test] Starting audio test for device:', vbCableDevice.deviceId);
+
+    // Capture from VB-Cable
+    vbCableTestStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: vbCableDevice.deviceId },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
+
+    console.log('[VB-Cable Test] Got stream with', vbCableTestStream.getAudioTracks().length, 'tracks');
+
+    // Create audio context and analyser
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(vbCableTestStream);
+    vbCableTestAnalyser = audioContext.createAnalyser();
+    vbCableTestAnalyser.fftSize = 256;
+    source.connect(vbCableTestAnalyser);
+
+    const dataArray = new Uint8Array(vbCableTestAnalyser.frequencyBinCount);
+    let peakLevel = 0;
+    let audioDetectedTime = null;
+
+    // Start monitoring
+    function updateMeter() {
+      if (!vbCableTestAnalyser) return;
+
+      vbCableTestAnalyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      const level = Math.min(100, avg * 1.5); // Scale up for visibility
+
+      // Track peak
+      if (level > peakLevel) peakLevel = level;
+
+      // Update UI
+      const meterBar = document.getElementById('vbcable-meter-bar');
+      const meterLabel = document.getElementById('vbcable-meter-label');
+      const statusEl = document.getElementById('vbcable-test-status');
+      const continueBtn = document.getElementById('vbcable-continue-btn');
+
+      if (meterBar) {
+        meterBar.style.width = `${level}%`;
+      }
+
+      // Detect audio (level above threshold for sustained period)
+      if (level > 5) {
+        if (!audioDetectedTime) {
+          audioDetectedTime = Date.now();
+        } else if (Date.now() - audioDetectedTime > 500 && !vbCableAudioDetected) {
+          // Audio confirmed after 500ms
+          vbCableAudioDetected = true;
+          console.log('[VB-Cable Test] Audio detected!');
+
+          if (meterLabel) meterLabel.textContent = 'Audio detected!';
+          if (statusEl) {
+            statusEl.innerHTML = '✓ <strong>VB-Cable is working!</strong> Your calls will be captured automatically.';
+            statusEl.className = 'audio-test-status success';
+          }
+          if (continueBtn) {
+            continueBtn.disabled = false;
+            continueBtn.textContent = "You're All Set →";
+          }
+
+          // Clear no-audio timeout
+          if (vbCableNoAudioTimeout) {
+            clearTimeout(vbCableNoAudioTimeout);
+            vbCableNoAudioTimeout = null;
+          }
+        }
+      } else {
+        audioDetectedTime = null;
+        if (meterLabel && !vbCableAudioDetected) {
+          meterLabel.textContent = 'Waiting for audio...';
+        }
+      }
+
+      vbCableTestAnimationId = requestAnimationFrame(updateMeter);
+    }
+
+    updateMeter();
+
+    // Set timeout for no audio detected
+    vbCableNoAudioTimeout = setTimeout(() => {
+      if (!vbCableAudioDetected) {
+        const statusEl = document.getElementById('vbcable-test-status');
+        if (statusEl) {
+          statusEl.textContent = '⚠ No audio detected. Check your dialer outputs to "CABLE Input"';
+          statusEl.className = 'audio-test-status warning';
+        }
+      }
+    }, 10000);
+
+  } catch (error) {
+    console.error('[VB-Cable Test] Error:', error);
+    const statusEl = document.getElementById('vbcable-test-status');
+    if (statusEl) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.className = 'audio-test-status error';
+    }
+  }
+}
+
+// Cleanup VB-Cable test resources
+function cleanupVBCableTest() {
+  if (vbCableTestAnimationId) {
+    cancelAnimationFrame(vbCableTestAnimationId);
+    vbCableTestAnimationId = null;
+  }
+  if (vbCableTestStream) {
+    vbCableTestStream.getTracks().forEach(track => track.stop());
+    vbCableTestStream = null;
+  }
+  if (vbCableNoAudioTimeout) {
+    clearTimeout(vbCableNoAudioTimeout);
+    vbCableNoAudioTimeout = null;
+  }
+  vbCableTestAnalyser = null;
+  vbCableAudioDetected = false;
+}
+
+// Finish VB-Cable setup and start capture
+function finishVBCableSetup() {
+  cleanupVBCableTest();
+  closeVBCableModal();
+  showToast('VB-Cable detected and working! Your calls will now be captured automatically.', 'success');
+  startSystemAudioCapture();
+}
+
+// Close VB-Cable modal
+function closeVBCableModal() {
+  cleanupVBCableTest();
+  const modal = document.getElementById('vbcable-modal');
+  if (modal) modal.remove();
+}
+
+// Show Listen Setup Modal (for "Can't hear your calls?" help)
+function showListenSetupModal() {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('listen-setup-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'listen-setup-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content listen-setup-modal">
+      <div class="modal-header">
+        <h2>Hear Your Calls</h2>
+        <button class="modal-close" onclick="closeListenSetupModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px; color: #aaa;">
+          By default, you won't hear audio routed through VB-Cable.<br>
+          Follow these steps to hear your calls:
+        </p>
+
+        <button class="btn-primary listen-modal-btn" onclick="openSoundSettingsFromModal()" style="width: 100%; margin-bottom: 16px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Open Sound Settings
+        </button>
+
+        <div class="listen-steps-modal">
+          <div class="listen-step-modal">
+            <span class="step-num">1</span>
+            <span>Go to <strong>"Recording"</strong> tab</span>
+          </div>
+          <div class="listen-step-modal">
+            <span class="step-num">2</span>
+            <span>Right-click <strong>"CABLE Output"</strong> → Properties</span>
+          </div>
+          <div class="listen-step-modal">
+            <span class="step-num">3</span>
+            <span>Click <strong>"Listen"</strong> tab</span>
+          </div>
+          <div class="listen-step-modal">
+            <span class="step-num">4</span>
+            <span>Check <strong>"Listen to this device"</strong></span>
+          </div>
+          <div class="listen-step-modal">
+            <span class="step-num">5</span>
+            <span>Select your headphones, click <strong>Apply</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeListenSetupModal()">Close</button>
+      </div>
+    </div>
+  `;
+
+  // Add styles for this modal
+  if (!document.getElementById('listen-modal-styles')) {
+    const styles = document.createElement('style');
+    styles.id = 'listen-modal-styles';
+    styles.textContent = `
+      .listen-setup-modal {
+        max-width: 380px;
+        width: 90%;
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      }
+      .listen-setup-modal .modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .listen-setup-modal h2 {
+        margin: 0;
+        font-size: 16px;
+        color: #fff;
+      }
+      .listen-setup-modal .modal-close {
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0 4px;
+      }
+      .listen-setup-modal .modal-close:hover {
+        color: #fff;
+      }
+      .listen-setup-modal .modal-body {
+        padding: 16px 20px;
+      }
+      .listen-modal-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        color: #fff;
+      }
+      .listen-modal-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 199, 190, 0.4);
+      }
+      .listen-steps-modal {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .listen-step-modal {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 0;
+        font-size: 12px;
+        color: #bbb;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .listen-step-modal:last-child {
+        border-bottom: none;
+      }
+      .listen-step-modal .step-num {
+        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        color: #fff;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+      .listen-step-modal strong {
+        color: #fff;
+      }
+      .listen-setup-modal .modal-footer {
+        padding: 12px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: flex-end;
+      }
+      .listen-setup-modal .btn-secondary {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ccc;
+      }
+      .listen-setup-modal .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+      }
+    `;
+    document.head.appendChild(styles);
+  }
+
+  document.body.appendChild(modal);
+}
+
+// Close Listen Setup Modal
+function closeListenSetupModal() {
+  const modal = document.getElementById('listen-setup-modal');
+  if (modal) modal.remove();
+}
+
+// Open sound settings from modal
+function openSoundSettingsFromModal() {
+  openSoundSettings();
+}
+
+// Download VB-Cable
+function downloadVBCable() {
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal('https://vb-audio.com/Cable/');
+  } else {
+    window.open('https://vb-audio.com/Cable/', '_blank');
+  }
+}
+
+// Open Chrome extension page as alternative to VB-Cable setup
+function openChromeExtension() {
+  // TODO: Update with actual Chrome Web Store URL when published
+  const chromeExtensionUrl = 'https://callsteer.ai/chrome-extension';
+
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(chromeExtensionUrl);
+  } else {
+    window.open(chromeExtensionUrl, '_blank');
+  }
+
+  // Close the VB-Cable modal since user chose alternative
+  closeVBCableModal();
+  showToast('Opening Chrome extension page...', 'info');
+}
+
+// Re-check for VB-Cable after installation - now shows test step
+async function recheckVBCable() {
+  closeVBCableModal();
+  showToast('Checking for VB-Cable...', 'info');
+
+  // Small delay to allow device enumeration to refresh
+  await new Promise(r => setTimeout(r, 500));
+
+  const vbCable = await detectVBCable();
+  if (vbCable) {
+    showToast('VB-Cable detected!', 'success');
+    // Show test modal instead of immediately starting capture
+    showVBCableTestModal(vbCable);
+  } else {
+    showToast('VB-Cable not found. Please install and restart.', 'warning');
+    showVBCableSetupModal();
+  }
+}
+
+// Helper function to handle a successfully captured audio stream
+function handleSystemAudioStream(stream) {
+  const toggleHint = document.getElementById('toggle-hint');
+
+  // Stop video tracks if any - we only need audio
+  stream.getVideoTracks().forEach(track => {
+    console.log('[System] Stopping video track:', track.label);
+    track.stop();
+    stream.removeTrack(track);
+  });
+
+  // Check if we got audio
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    console.warn('[System] No audio track in stream');
+    if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
+    showToast('No audio track available.', 'warning');
+    return;
+  }
+
+  // Store the audio stream
+  systemAudioStream = stream;
+  persistentSystemStream = stream;
+  systemStreamMuted = false;
+
+  // Handle stream ending
+  audioTracks[0].onended = () => {
+    console.log('[System] Audio track ended');
+    persistentSystemStream = null;
+  };
+
+  const audioTrack = audioTracks[0];
+  console.log('[System] System audio capture successful!');
+  console.log('[System] Audio track:', audioTrack.label);
+  console.log('[System] Audio track settings:', JSON.stringify(audioTrack.getSettings()));
+
+  // Update UI
+  if (toggleHint) toggleHint.textContent = 'Listening (system audio)';
+  showToast('System audio connected', 'success');
+
+  // Connect to Deepgram for transcription
+  connectDeepgramSystem();
+}
 
 async function startSystemAudioCapture() {
   const toggleHint = document.getElementById('toggle-hint');
 
   try {
     console.log('[System] ═══════════════════════════════════════════════════');
-    console.log('[System] STARTING SYSTEM AUDIO CAPTURE (getDisplayMedia)');
-    console.log('[System] persistentSystemStream exists:', !!persistentSystemStream);
-    console.log('[System] systemStreamMuted:', systemStreamMuted);
+    console.log('[System] STARTING SYSTEM AUDIO CAPTURE');
     console.log('[System] ═══════════════════════════════════════════════════');
 
     // Check if we already have a persistent stream
@@ -2725,63 +4625,60 @@ async function startSystemAudioCapture() {
       }
     }
 
-    if (toggleHint) toggleHint.textContent = 'Select screen to share audio...';
+    if (toggleHint) toggleHint.textContent = 'Detecting audio devices...';
 
     // ═══════════════════════════════════════════════════════════════════
-    // USE getDisplayMedia - SAME AS CHROME
-    // This shows the native Windows picker with "Share audio" checkbox
+    // OPTION 1: VB-Cable (most reliable on Windows)
+    // No screen picker, no permissions issues, works with any dialer
     // ═══════════════════════════════════════════════════════════════════
+    console.log('[System] Checking for VB-Cable...');
+    const vbCable = await detectVBCable();
 
-    console.log('[System] Calling getDisplayMedia({ video: true, audio: true })...');
-    console.log('[System] The native Windows picker should appear now...');
+    if (vbCable) {
+      console.log('[System] VB-Cable found! Using:', vbCable.label);
+      if (toggleHint) toggleHint.textContent = 'Connecting to VB-Cable...';
 
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true
-    });
-
-    console.log('[System] Got stream from getDisplayMedia!');
-    console.log('[System] Audio tracks:', stream.getAudioTracks().length);
-    console.log('[System] Video tracks:', stream.getVideoTracks().length);
-
-    // Stop video tracks - we only need audio
-    stream.getVideoTracks().forEach(track => {
-      console.log('[System] Stopping video track:', track.label);
-      track.stop();
-      stream.removeTrack(track);
-    });
-
-    // Check if we got audio
-    const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      console.warn('[System] No audio track - user may not have checked "Share audio"');
-      if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
-      showToast('No audio. Enable "Share audio" in the picker.', 'warning');
-      return;
+      try {
+        const stream = await captureVBCable(vbCable.deviceId);
+        if (stream && stream.getAudioTracks().length > 0) {
+          console.log('[System] VB-Cable capture successful!');
+          handleSystemAudioStream(stream);
+          return;
+        }
+      } catch (vbError) {
+        console.error('[System] VB-Cable capture failed:', vbError.message);
+        showToast('VB-Cable found but capture failed. Check permissions.', 'warning');
+      }
     }
 
-    // Store the audio stream
-    systemAudioStream = stream;
-    persistentSystemStream = stream;
-    systemStreamMuted = false;
+    // ═══════════════════════════════════════════════════════════════════
+    // OPTION 2: Direct WASAPI loopback (experimental)
+    // May not work on all systems - try before showing setup modal
+    // ═══════════════════════════════════════════════════════════════════
+    if (window.electronAPI?.hasDirectLoopback && window.electronAPI.hasDirectLoopback()) {
+      console.log('[System] Direct loopback available - trying WASAPI capture...');
+      if (toggleHint) toggleHint.textContent = 'Trying direct capture...';
 
-    // Handle stream ending
-    audioTracks[0].onended = () => {
-      console.log('[System] Audio track ended');
-      persistentSystemStream = null;
-    };
+      try {
+        const stream = await window.electronAPI.getLoopbackAudioStream();
+        if (stream && stream.getAudioTracks().length > 0) {
+          console.log('[System] Direct WASAPI capture successful!');
+          handleSystemAudioStream(stream);
+          return;
+        }
+      } catch (directError) {
+        console.warn('[System] Direct loopback failed:', directError.message);
+      }
+    }
 
-    const audioTrack = audioTracks[0];
-    console.log('[System] System audio capture successful!');
-    console.log('[System] Audio track:', audioTrack.label);
-    console.log('[System] Audio track settings:', JSON.stringify(audioTrack.getSettings()));
+    // ═══════════════════════════════════════════════════════════════════
+    // NO CAPTURE METHOD AVAILABLE - Show VB-Cable setup instructions
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('[System] No system audio capture available');
+    console.log('[System] Showing VB-Cable setup modal...');
 
-    // Update UI
-    if (toggleHint) toggleHint.textContent = 'Listening (system audio)';
-    showToast('System audio connected', 'success');
-
-    // Connect to Deepgram for transcription
-    connectDeepgramSystem();
+    if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
+    showVBCableSetupModal();
 
   } catch (error) {
     console.error('[System] System audio capture failed:', error.name, error.message);
@@ -2791,9 +4688,7 @@ async function startSystemAudioCapture() {
     if (toggleHint) toggleHint.textContent = 'Listening (mic only)';
 
     if (error.name === 'NotAllowedError') {
-      showToast('Screen share cancelled. Using mic only.', 'info');
-    } else if (error.name === 'NotSupportedError') {
-      showToast('getDisplayMedia not supported. Update Electron.', 'error');
+      showToast('Audio permission denied. Check settings.', 'warning');
     } else if (error.name === 'NotReadableError') {
       showToast('Audio source busy. Try closing other apps.', 'warning');
     } else {

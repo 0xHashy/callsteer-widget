@@ -5,16 +5,30 @@ const fs = require('fs');
 // Dev mode flag - set to true to enable DevTools
 const DEV_MODE = true;
 
-// Enable audio capture features for Windows - MUST be before app.ready
-// These flags match Chrome's capabilities for getDisplayMedia with audio
-app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer,ScreenCaptureKitMac,DesktopCaptureAudio');
+// Configure command line switches FIRST - BEFORE any other modules that might use them
+// These must be set before app.ready for them to take effect
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaCaptureMuteAudio');
 app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
 // Allow file:// protocol to use media APIs
 app.commandLine.appendSwitch('allow-insecure-localhost');
 
-// NOTE: getDisplayMedia DOES work in Electron 39+ with proper configuration
-// No custom setDisplayMediaRequestHandler needed - let Electron use native picker like Chrome
+// Initialize electron-audio-loopback AFTER command line switches
+// This library sets up IPC handlers for enable-loopback-audio and disable-loopback-audio
+// When enableLoopbackAudio() is called from renderer, it sets up setDisplayMediaRequestHandler
+try {
+  const { initMain } = require('electron-audio-loopback');
+  // Pass options to configure the library
+  initMain({
+    loopbackWithMute: false,  // Don't mute local audio
+  });
+  console.log('[Main] electron-audio-loopback initMain() called successfully');
+  console.log('[Main] IPC handlers registered: enable-loopback-audio, disable-loopback-audio');
+} catch (err) {
+  console.error('[Main] Failed to initialize electron-audio-loopback:', err.message);
+}
+
+// NOTE: Electron requires setDisplayMediaRequestHandler for getDisplayMedia to work
+// The handler shows our custom picker via IPC, then returns selected source with audio: 'loopback'
 
 // Auto-updater - lazy load to avoid accessing app before ready
 let autoUpdater = null;
@@ -34,9 +48,14 @@ let tray;
 const configPath = path.join(app.getPath('userData'), 'window-config.json');
 const clientConfigPath = path.join(app.getPath('userData'), 'client-config.json');
 
-// Widget dimensions - fixed 320px width to match CSS
-const WIDGET_WIDTH = 320;
-const WIDGET_HEIGHT = 520;
+// Widget dimensions - resizable with min/max constraints
+// PRINCIPLE: Launch big, resize dynamically, stay beautiful at any size
+const DEFAULT_WIDTH = 380;   // Comfortable default
+const DEFAULT_HEIGHT = 650;  // Shows everything without scroll
+const MIN_WIDTH = 280;       // Minimum compact
+const MIN_HEIGHT = 400;      // Minimum usable
+const MAX_WIDTH = 500;
+const MAX_HEIGHT = 850;      // Maximum for detailed view
 
 function loadWindowBounds() {
   try {
@@ -67,23 +86,32 @@ function createWindow() {
 
   // Load saved bounds or calculate default top-right position
   const savedBounds = loadWindowBounds();
-  const defaultX = screenWidth - WIDGET_WIDTH - 20; // 20px margin from right
+  const defaultX = screenWidth - DEFAULT_WIDTH - 20; // 20px margin from right
   const defaultY = 20; // 20px margin from top
 
   const bounds = savedBounds || {
-    width: WIDGET_WIDTH,
-    height: WIDGET_HEIGHT,
+    width: DEFAULT_WIDTH,
+    height: DEFAULT_HEIGHT,
     x: defaultX,
     y: defaultY
   };
 
-  // Validate bounds are within screen
+  // Validate bounds are within screen and constraints
   if (savedBounds) {
+    // Enforce min/max constraints on saved bounds
+    bounds.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, bounds.width));
+    bounds.height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, bounds.height));
+    // Keep window on screen
     if (bounds.x < 0) bounds.x = 0;
     if (bounds.y < 0) bounds.y = 0;
     if (bounds.x + bounds.width > screenWidth) bounds.x = screenWidth - bounds.width;
     if (bounds.y + bounds.height > screenHeight) bounds.y = screenHeight - bounds.height;
   }
+
+  // Load the app icon for taskbar and window
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'build', 'icon.ico')
+    : path.join(__dirname, 'build', 'icon.png');
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -93,43 +121,50 @@ function createWindow() {
     frame: false,
     alwaysOnTop: true,
     resizable: true,
-    minWidth: 200,
-    minHeight: 200,
-    maxWidth: 400,
-    maxHeight: 800,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    maxWidth: MAX_WIDTH,
+    maxHeight: MAX_HEIGHT,
     transparent: true,
     backgroundColor: '#00000000', // Fully transparent for glassmorphism
     hasShadow: true,
     vibrancy: 'ultra-dark', // macOS vibrancy effect
     visualEffectState: 'active',
     skipTaskbar: false,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      backgroundThrottling: false // Keep audio capture running in background
+      backgroundThrottling: false, // Keep audio capture running in background
+      // Enable getDisplayMedia and screen capture features
+      enableBlinkFeatures: 'GetDisplayMedia,AudioVideoTracks'
     }
   });
 
-  // Handle media/microphone/screen permission requests for audio capture
+  // Grant ALL media permissions automatically (like Chrome does)
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowedPermissions = ['media', 'microphone', 'audioCapture', 'screen', 'desktopCapture', 'display-capture'];
-    if (allowedPermissions.includes(permission)) {
-      console.log(`[Main] Permission granted: ${permission}`);
+    console.log(`[Main] Permission requested: ${permission}`);
+    // Grant all media-related permissions
+    if (['media', 'microphone', 'audioCapture', 'screen', 'desktopCapture', 'display-capture', 'mediaKeySystem'].includes(permission)) {
+      console.log(`[Main] Permission GRANTED: ${permission}`);
       callback(true);
     } else {
-      console.log(`[Main] Permission denied: ${permission}`);
-      callback(false);
+      callback(true); // Grant everything for now to debug
     }
   });
 
-  // Also handle permission check handler for some Electron versions
-  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
-    const allowedPermissions = ['media', 'microphone', 'audioCapture', 'screen', 'desktopCapture', 'display-capture'];
-    return allowedPermissions.includes(permission);
+  // Permission check handler - return true for all media permissions
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    console.log(`[Main] Permission check: ${permission} from ${requestingOrigin}`);
+    // Allow all permissions
+    return true;
   });
 
-  // NOTE: No custom setDisplayMediaRequestHandler - let Electron use native picker like Chrome
+  // DO NOT set a custom setDisplayMediaRequestHandler here!
+  // electron-audio-loopback sets its own handler when enableLoopbackAudio() is called
+  // Setting our own handler would overwrite the library's handler
+  console.log('[Main] No custom display media handler - electron-audio-loopback will set one when enabled');
 
   // Set always on top with highest level to stay above all windows
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -182,65 +217,25 @@ function createWindow() {
 }
 
 function createTray() {
-  // Create a 16x16 tray icon (ship wheel pattern)
-  const iconSize = 16;
-  const canvas = Buffer.alloc(iconSize * iconSize * 4);
-  const cx = iconSize / 2;
-  const cy = iconSize / 2;
+  // Use the actual CallSteer teal map pin icon
+  const trayIconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'build', 'icon.ico')
+    : path.join(__dirname, 'build', 'icon.png');
 
-  for (let y = 0; y < iconSize; y++) {
-    for (let x = 0; x < iconSize; x++) {
-      const idx = (y * iconSize + x) * 4;
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
-
-      let isGreen = false;
-
-      // Outer ring (radius 6-7)
-      if (dist >= 5.5 && dist <= 7.5) {
-        isGreen = true;
-      }
-      // Inner hub (radius 1.5-2.5)
-      if (dist >= 1 && dist <= 2.5) {
-        isGreen = true;
-      }
-      // Spokes (8 spokes, every 45 degrees)
-      for (let i = 0; i < 8; i++) {
-        const spokeAngle = (i * Math.PI) / 4;
-        const angleDiff = Math.abs(angle - spokeAngle);
-        const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
-        if (normalizedDiff < 0.25 && dist >= 2 && dist <= 6) {
-          isGreen = true;
-        }
-      }
-      // Handles at spoke ends
-      for (let i = 0; i < 8; i++) {
-        const spokeAngle = (i * Math.PI) / 4;
-        const handleX = cx + Math.cos(spokeAngle) * 7;
-        const handleY = cy + Math.sin(spokeAngle) * 7;
-        const handleDist = Math.sqrt((x - handleX) ** 2 + (y - handleY) ** 2);
-        if (handleDist <= 1.5) {
-          isGreen = true;
-        }
-      }
-
-      if (isGreen) {
-        canvas[idx] = 0x00;     // R
-        canvas[idx + 1] = 0xff; // G
-        canvas[idx + 2] = 0x88; // B
-        canvas[idx + 3] = 0xff; // A
-      } else {
-        canvas[idx] = 0x00;
-        canvas[idx + 1] = 0x00;
-        canvas[idx + 2] = 0x00;
-        canvas[idx + 3] = 0x00;
-      }
+  let icon;
+  try {
+    icon = nativeImage.createFromPath(trayIconPath);
+    // Resize for tray (16x16 on Windows, varies on other platforms)
+    if (process.platform === 'win32') {
+      icon = icon.resize({ width: 16, height: 16 });
     }
+    console.log('[Main] Tray icon loaded from:', trayIconPath);
+  } catch (e) {
+    console.error('[Main] Failed to load tray icon:', e);
+    // Fallback to a simple icon if file fails
+    icon = nativeImage.createEmpty();
   }
 
-  const icon = nativeImage.createFromBuffer(canvas, { width: iconSize, height: iconSize });
   tray = new Tray(icon);
 
   const contextMenu = Menu.buildFromTemplate([
@@ -389,6 +384,26 @@ ipcMain.handle('open-external', (event, url) => {
   return true;
 });
 
+// Run shell commands (for opening Windows control panel applets like mmsys.cpl)
+ipcMain.handle('run-command', (event, cmd) => {
+  // Only allow safe commands
+  const allowedCommands = ['mmsys.cpl', 'control', 'ms-settings:sound'];
+  const cmdLower = cmd.toLowerCase();
+
+  if (allowedCommands.some(allowed => cmdLower.includes(allowed))) {
+    const { exec } = require('child_process');
+    exec(cmd, (error) => {
+      if (error) {
+        console.error('[Main] Command execution error:', error);
+      }
+    });
+    return true;
+  }
+
+  console.warn('[Main] Command not allowed:', cmd);
+  return false;
+});
+
 // Desktop capturer for system audio (customer voice)
 // Returns windows and screens with thumbnails for the dialer picker
 ipcMain.handle('get-desktop-sources', async () => {
@@ -451,6 +466,115 @@ function loadClientConfig() {
   }
   return {};
 }
+
+// Compact mode dimensions
+const COMPACT_WIDTH = 280;
+const COMPACT_HEIGHT = 200;
+
+// IPC handler for compact mode toggle
+ipcMain.handle('set-compact-mode', (event, isCompact) => {
+  try {
+    const config = loadClientConfig();
+    config.compactMode = isCompact;
+    fs.writeFileSync(clientConfigPath, JSON.stringify(config, null, 2));
+
+    // Resize window for compact mode
+    if (mainWindow) {
+      const currentBounds = mainWindow.getBounds();
+      if (isCompact) {
+        // Save current size before going compact
+        config.fullModeSize = { width: currentBounds.width, height: currentBounds.height };
+        fs.writeFileSync(clientConfigPath, JSON.stringify(config, null, 2));
+        mainWindow.setMinimumSize(COMPACT_WIDTH, COMPACT_HEIGHT);
+        mainWindow.setSize(COMPACT_WIDTH, COMPACT_HEIGHT, true);
+      } else {
+        // Restore previous size or default
+        const restoreWidth = config.fullModeSize?.width || DEFAULT_WIDTH;
+        const restoreHeight = config.fullModeSize?.height || DEFAULT_HEIGHT;
+        mainWindow.setMinimumSize(MIN_WIDTH, MIN_HEIGHT);
+        mainWindow.setSize(restoreWidth, restoreHeight, true);
+      }
+    }
+    return true;
+  } catch (e) {
+    console.error('Failed to set compact mode:', e);
+    return false;
+  }
+});
+
+ipcMain.handle('get-compact-mode', () => {
+  try {
+    const config = loadClientConfig();
+    // Only return true if EXPLICITLY set to true (boolean)
+    // Any other value (undefined, null, string, etc.) returns false
+    return config.compactMode === true;
+  } catch (e) {
+    return false;
+  }
+});
+
+// IPC handler to get current window bounds
+ipcMain.handle('get-window-bounds', () => {
+  if (mainWindow) {
+    return mainWindow.getBounds();
+  }
+  return null;
+});
+
+// IPC handler for window resize (custom resize handles for frameless window)
+// Uses delta-based approach for smooth, responsive resizing
+ipcMain.on('resize-window-delta', (event, { deltaX, deltaY, edge }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+
+  const [x, y] = win.getPosition();
+  const [width, height] = win.getSize();
+
+  let newWidth = width;
+  let newHeight = height;
+  let newX = x;
+  let newY = y;
+
+  // Apply deltas based on which edge is being dragged
+  if (edge.includes('right')) {
+    newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width + deltaX));
+  }
+  if (edge.includes('bottom')) {
+    newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height + deltaY));
+  }
+  if (edge.includes('left')) {
+    const proposedWidth = width - deltaX;
+    if (proposedWidth >= MIN_WIDTH && proposedWidth <= MAX_WIDTH) {
+      newWidth = proposedWidth;
+      newX = x + deltaX;
+    }
+  }
+  if (edge.includes('top')) {
+    const proposedHeight = height - deltaY;
+    if (proposedHeight >= MIN_HEIGHT && proposedHeight <= MAX_HEIGHT) {
+      newHeight = proposedHeight;
+      newY = y + deltaY;
+    }
+  }
+
+  win.setBounds({ x: newX, y: newY, width: newWidth, height: newHeight });
+});
+
+// Legacy handler for backwards compatibility
+ipcMain.handle('resize-window', (event, { width, height, x, y }) => {
+  if (mainWindow) {
+    const currentBounds = mainWindow.getBounds();
+    const newBounds = {
+      x: x !== undefined ? x : currentBounds.x,
+      y: y !== undefined ? y : currentBounds.y,
+      width: width !== undefined ? width : currentBounds.width,
+      height: height !== undefined ? height : currentBounds.height
+    };
+    mainWindow.setBounds(newBounds);
+    return true;
+  }
+  return false;
+});
 
 app.whenReady().then(() => {
   createWindow();
