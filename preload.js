@@ -74,9 +74,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowDisplayMediaPicker: (callback) => ipcRenderer.on('show-display-media-picker', (event, sources) => callback(sources)),
   sendDisplayMediaSourceSelected: (sourceId) => ipcRenderer.send('display-media-source-selected', sourceId),
 
-  // Compact mode
-  setCompactMode: (isCompact) => ipcRenderer.invoke('set-compact-mode', isCompact),
-  getCompactMode: () => ipcRenderer.invoke('get-compact-mode'),
+  // Window bounds
   getWindowBounds: () => ipcRenderer.invoke('get-window-bounds'),
 
   // Window resize (for custom resize handles in frameless window)

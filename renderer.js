@@ -151,10 +151,6 @@ loadTheme();
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 async function initializeApp() {
-  // CRITICAL: Force remove compact mode on start - it must be explicitly enabled
-  document.body.classList.remove('compact-mode');
-  console.log('[Init] Compact mode forcibly removed on start');
-
   // Clear any stale persistent stream from previous session
   // This ensures Windows picker ALWAYS appears on first power click after app start
   persistentSystemStream = null;
@@ -168,9 +164,6 @@ async function initializeApp() {
   setupLoginHandlers();
   setupThemeToggle();
   setupSetupWizard();
-
-  // Load compact mode preference (only enables if explicitly saved as true)
-  await loadCompactModePreference();
 
   // Load nudge sound preference
   loadNudgeSoundPreference();
@@ -415,21 +408,6 @@ function showMainWidget() {
   const mainWidget = document.getElementById('main-widget');
   mainWidget.style.display = 'flex';
 
-  // CRITICAL FIX: ALWAYS force remove compact mode class
-  // It should only be added when user explicitly enables it in settings
-  const hadCompactMode = document.body.classList.contains('compact-mode');
-  document.body.classList.remove('compact-mode');
-
-  if (hadCompactMode) {
-    console.warn('[UI] WARNING: compact-mode was ON - forcibly removed!');
-  }
-
-  // Check if compact mode toggle is ON in settings
-  const compactToggle = document.getElementById('compact-mode-toggle');
-  const isCompactModeEnabled = compactToggle?.classList.contains('active') || false;
-
-  console.log('[UI] Compact toggle state:', isCompactModeEnabled ? 'ACTIVE' : 'inactive');
-
   // ALWAYS force visibility on essential elements with inline styles
   // This overrides ANY CSS rule that might be hiding them
   const header = mainWidget.querySelector('.header');
@@ -550,10 +528,7 @@ function debugMainWidget() {
   }
 
   console.log('=== END DOM DEBUG ===');
-
-  // Verify main widget structure and compact mode state
-  const isCompact = document.body.classList.contains('compact-mode');
-  console.log('[UI] Main widget shown. Compact mode:', isCompact);
+  console.log('[UI] Main widget shown');
 
   // Clear old nudges from previous sessions - start fresh
   // Live nudges only - they disappear when widget closes
@@ -752,17 +727,6 @@ function setupWindowControls() {
     localStorage.setItem('callsteer_audio_warning_dismissed', 'true');
   });
 
-  // Compact Mode toggle from settings menu
-  document.getElementById('menu-compact-mode')?.addEventListener('click', async (e) => {
-    e.stopPropagation(); // Don't close dropdown
-    await toggleCompactMode();
-  });
-
-  // Expand button (visible only in compact mode) - exits compact mode
-  document.getElementById('expand-btn')?.addEventListener('click', async () => {
-    await setCompactMode(false);
-  });
-
   // Nudge Sound toggle
   document.getElementById('menu-nudge-sound')?.addEventListener('click', (e) => {
     e.stopPropagation(); // Don't close dropdown
@@ -925,102 +889,6 @@ function updateGreeting() {
   } else {
     greetingEl.innerHTML = '';
   }
-}
-
-/**
- * Load compact mode preference from main process storage
- * CRITICAL: Defaults to FALSE - compact mode must be EXPLICITLY enabled
- */
-async function loadCompactModePreference() {
-  try {
-    let isCompact = false; // DEFAULT: compact mode OFF
-
-    if (window.electronAPI?.getCompactMode) {
-      const savedCompact = await window.electronAPI.getCompactMode();
-      // Only enable if EXPLICITLY saved as true
-      isCompact = savedCompact === true;
-      console.log('[Init] Compact mode preference from storage:', savedCompact, '-> using:', isCompact);
-    } else {
-      console.log('[Init] No electronAPI.getCompactMode - defaulting to full mode');
-    }
-
-    // Update toggle UI
-    const toggle = document.getElementById('compact-mode-toggle');
-    if (toggle) {
-      toggle.classList.toggle('active', isCompact);
-    }
-
-    // Update body class and resize window
-    if (isCompact) {
-      document.body.classList.add('compact-mode');
-      if (window.electronAPI?.resizeWindow) {
-        await window.electronAPI.resizeWindow({ width: 320, height: 220 });
-      }
-      console.log('[Init] Compact mode ENABLED');
-    } else {
-      document.body.classList.remove('compact-mode');
-      // Don't resize on load for full mode - let main.js handle initial size
-      console.log('[Init] Full mode ENABLED (compact mode removed)');
-    }
-  } catch (e) {
-    console.error('[Init] Failed to load compact mode preference:', e);
-    // On error, ensure full mode
-    document.body.classList.remove('compact-mode');
-  }
-}
-
-/**
- * Toggle compact mode on/off
- */
-async function toggleCompactMode() {
-  const isCurrentlyCompact = document.body.classList.contains('compact-mode');
-  await setCompactMode(!isCurrentlyCompact);
-}
-
-/**
- * Set compact mode to a specific state
- * @param {boolean} compact - true for compact mode, false for full mode
- */
-async function setCompactMode(compact) {
-  console.log('[Compact Mode] Setting to:', compact ? 'COMPACT' : 'FULL');
-
-  // Update body class
-  if (compact) {
-    document.body.classList.add('compact-mode');
-  } else {
-    document.body.classList.remove('compact-mode');
-  }
-
-  // Update toggle UI in settings menu
-  const toggle = document.getElementById('compact-mode-toggle');
-  if (toggle) {
-    toggle.classList.toggle('active', compact);
-  }
-
-  // Clear any inline display styles so CSS rules take over
-  const mainWidget = document.getElementById('main-widget');
-  if (mainWidget) {
-    const elements = mainWidget.querySelectorAll('.header, .content, .footer, .tab-nav, .audio-config-section, .toggle-section');
-    elements.forEach(el => {
-      if (el) el.style.display = '';
-    });
-  }
-
-  // Resize window
-  if (window.electronAPI?.resizeWindow) {
-    if (compact) {
-      await window.electronAPI.resizeWindow({ width: 320, height: 220 });
-    } else {
-      await window.electronAPI.resizeWindow({ width: 380, height: 650 });
-    }
-  }
-
-  // Save preference
-  if (window.electronAPI?.setCompactMode) {
-    await window.electronAPI.setCompactMode(compact);
-  }
-
-  console.log('[Compact Mode]', compact ? 'Compact mode ENABLED' : 'Full mode RESTORED');
 }
 
 /**
@@ -1647,17 +1515,6 @@ function setupToggle() {
   const powerToggle = document.getElementById('power-toggle');
   console.log('[Setup] Power toggle element:', powerToggle);
   powerToggle?.addEventListener('click', toggleListening);
-
-  // Double-click on power button exits compact mode (fallback escape hatch)
-  powerToggle?.addEventListener('dblclick', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (document.body.classList.contains('compact-mode')) {
-      console.log('[Compact Mode] Double-click detected - exiting compact mode');
-      await setCompactMode(false);
-    }
-  });
-
   console.log('[Setup] Toggle listener added');
 }
 

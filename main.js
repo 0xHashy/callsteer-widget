@@ -48,14 +48,14 @@ let tray;
 const configPath = path.join(app.getPath('userData'), 'window-config.json');
 const clientConfigPath = path.join(app.getPath('userData'), 'client-config.json');
 
-// Widget dimensions - resizable with min/max constraints
-// PRINCIPLE: Launch big, resize dynamically, stay beautiful at any size
+// Widget dimensions - fully responsive like Spotify desktop app
+// PRINCIPLE: Launch comfortable, resize dynamically, scale beautifully at any size
 const DEFAULT_WIDTH = 380;   // Comfortable default
-const DEFAULT_HEIGHT = 650;  // Shows everything without scroll
-const MIN_WIDTH = 280;       // Minimum compact
-const MIN_HEIGHT = 400;      // Minimum usable
-const MAX_WIDTH = 500;
-const MAX_HEIGHT = 850;      // Maximum for detailed view
+const DEFAULT_HEIGHT = 600;  // Shows main content well
+const MIN_WIDTH = 280;       // Minimum - shows header, power button, nudge card
+const MIN_HEIGHT = 350;      // Minimum - prioritizes essential controls
+const MAX_WIDTH = 500;       // Maximum width
+const MAX_HEIGHT = 850;      // Maximum for detailed stats view
 
 function loadWindowBounds() {
   try {
@@ -466,52 +466,6 @@ function loadClientConfig() {
   }
   return {};
 }
-
-// Compact mode dimensions
-const COMPACT_WIDTH = 280;
-const COMPACT_HEIGHT = 200;
-
-// IPC handler for compact mode toggle
-ipcMain.handle('set-compact-mode', (event, isCompact) => {
-  try {
-    const config = loadClientConfig();
-    config.compactMode = isCompact;
-    fs.writeFileSync(clientConfigPath, JSON.stringify(config, null, 2));
-
-    // Resize window for compact mode
-    if (mainWindow) {
-      const currentBounds = mainWindow.getBounds();
-      if (isCompact) {
-        // Save current size before going compact
-        config.fullModeSize = { width: currentBounds.width, height: currentBounds.height };
-        fs.writeFileSync(clientConfigPath, JSON.stringify(config, null, 2));
-        mainWindow.setMinimumSize(COMPACT_WIDTH, COMPACT_HEIGHT);
-        mainWindow.setSize(COMPACT_WIDTH, COMPACT_HEIGHT, true);
-      } else {
-        // Restore previous size or default
-        const restoreWidth = config.fullModeSize?.width || DEFAULT_WIDTH;
-        const restoreHeight = config.fullModeSize?.height || DEFAULT_HEIGHT;
-        mainWindow.setMinimumSize(MIN_WIDTH, MIN_HEIGHT);
-        mainWindow.setSize(restoreWidth, restoreHeight, true);
-      }
-    }
-    return true;
-  } catch (e) {
-    console.error('Failed to set compact mode:', e);
-    return false;
-  }
-});
-
-ipcMain.handle('get-compact-mode', () => {
-  try {
-    const config = loadClientConfig();
-    // Only return true if EXPLICITLY set to true (boolean)
-    // Any other value (undefined, null, string, etc.) returns false
-    return config.compactMode === true;
-  } catch (e) {
-    return false;
-  }
-});
 
 // IPC handler to get current window bounds
 ipcMain.handle('get-window-bounds', () => {
