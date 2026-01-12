@@ -7,22 +7,59 @@
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
-  <div class="dashboard">
+  <!-- Login Screen (shown when not logged in) -->
+  <div class="login-screen" id="login-screen" style="display: none;">
+    <div class="login-container">
+      <div class="login-brand">
+        <svg class="logo-icon" viewBox="0 0 64 64" width="48" height="48">
+          <defs>
+            <linearGradient id="loginLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00C8D4"/>
+              <stop offset="100%" stop-color="#00E0E6"/>
+            </linearGradient>
+          </defs>
+          <path d="M32 6C23 6 16 13 16 22c0 11 16 32 16 32s16-21 16-32c0-9-7-16-16-16z" fill="url(#loginLogoGrad)"/>
+          <circle cx="32" cy="22" r="6" fill="#0a0a0f"/>
+          <path d="M42 12c3.5 3.5 5.5 8 5.5 13" stroke="url(#loginLogoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+          <path d="M46 8c5 5 8 11.5 8 18.5" stroke="url(#loginLogoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+          <path d="M50 4c6.5 6.5 10 15 10 24" stroke="url(#loginLogoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+        </svg>
+        <h1><span class="brand-name">CALLSTEER</span><span class="brand-ai">.AI</span></h1>
+        <p>Real-time sales coaching</p>
+      </div>
+      <form class="login-form" id="dashboard-login-form">
+        <div class="login-input-group">
+          <label for="dashboard-rep-name">Your Name</label>
+          <input type="text" id="dashboard-rep-name" placeholder="Enter your name" required>
+        </div>
+        <div class="login-input-group">
+          <label for="dashboard-client-code">Company Code</label>
+          <input type="text" id="dashboard-client-code" placeholder="Enter your company code" required>
+        </div>
+        <div class="login-error" id="dashboard-login-error"></div>
+        <button type="submit" class="btn-login" id="dashboard-login-btn">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard-main">
     <!-- Sidebar Navigation -->
     <nav class="sidebar">
       <div class="sidebar-brand">
-        <svg class="logo-icon" viewBox="0 0 48 48" width="32" height="32">
+        <svg class="logo-icon" viewBox="0 0 64 64" width="32" height="32">
           <defs>
             <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#00C8D4"/>
               <stop offset="100%" stop-color="#00E0E6"/>
             </linearGradient>
           </defs>
-          <path d="M24 4C16.3 4 10 10.3 10 18c0 10 14 26 14 26s14-16 14-26c0-7.7-6.3-14-14-14z"
-                fill="none" stroke="url(#logoGrad)" stroke-width="2.5"/>
-          <circle cx="24" cy="18" r="5" fill="url(#logoGrad)"/>
+          <path d="M32 6C23 6 16 13 16 22c0 11 16 32 16 32s16-21 16-32c0-9-7-16-16-16z" fill="url(#logoGrad)"/>
+          <circle cx="32" cy="22" r="6" fill="#0a0a0f"/>
+          <path d="M42 12c3.5 3.5 5.5 8 5.5 13" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+          <path d="M46 8c5 5 8 11.5 8 18.5" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+          <path d="M50 4c6.5 6.5 10 15 10 24" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5"/>
         </svg>
-        <span class="brand-text">CallSteer</span>
+        <span class="brand-text"><span class="brand-name">CALLSTEER</span><span class="brand-ai">.AI</span></span>
       </div>
 
       <ul class="nav-tabs">
@@ -47,6 +84,16 @@
             <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
           </svg>
           <span>Leaderboard</span>
+        </li>
+        <li class="nav-tab" data-tab="playbook">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            <line x1="8" y1="6" x2="16" y2="6"/>
+            <line x1="8" y1="10" x2="16" y2="10"/>
+            <line x1="8" y1="14" x2="12" y2="14"/>
+          </svg>
+          <span>Playbook</span>
         </li>
         <li class="nav-tab" data-tab="tutorial">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -338,6 +385,96 @@
         </div>
       </div>
 
+      <!-- Playbook Tab -->
+      <div class="tab-content" id="tab-playbook">
+        <div class="content-header">
+          <h1>Custom Playbook</h1>
+          <p class="subtitle">Manage your team's rebuttals and responses</p>
+        </div>
+
+        <!-- Playbook Stats -->
+        <div class="playbook-stats">
+          <div class="stat-card">
+            <div class="stat-value" id="playbook-total">0</div>
+            <div class="stat-label">Total Nudges</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="playbook-active">0</div>
+            <div class="stat-label">Active</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-value" id="playbook-adoption">0%</div>
+            <div class="stat-label">Adoption Rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="playbook-triggered">0</div>
+            <div class="stat-label">Times Triggered</div>
+          </div>
+        </div>
+
+        <!-- Add Nudge Button -->
+        <div class="playbook-actions">
+          <button class="btn-add-nudge" id="btn-add-nudge">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Custom Nudge
+          </button>
+        </div>
+
+        <!-- Playbook List -->
+        <div class="playbook-list" id="playbook-list">
+          <div class="playbook-empty" id="playbook-empty">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+            <h3>No custom nudges yet</h3>
+            <p>Add your first custom rebuttal to get started</p>
+          </div>
+          <!-- Nudges will be rendered here by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Playbook Modal -->
+      <div class="modal-overlay" id="playbook-modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="modal-title">Add Custom Nudge</h2>
+            <button class="modal-close" id="modal-close">&times;</button>
+          </div>
+          <form id="playbook-form">
+            <div class="form-group">
+              <label for="nudge-trigger">Trigger Phrase</label>
+              <input type="text" id="nudge-trigger" placeholder="e.g., 'too expensive', 'need to think about it'" required>
+              <span class="form-hint">The phrase that triggers this nudge when customer says it</span>
+            </div>
+            <div class="form-group">
+              <label for="nudge-trigger-type">Trigger Type</label>
+              <select id="nudge-trigger-type">
+                <option value="keyword">Keyword Match</option>
+                <option value="semantic">Semantic Match (Fuzzy)</option>
+                <option value="regex">Regular Expression</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nudge-category">Category</label>
+              <input type="text" id="nudge-category" placeholder="e.g., 'Price Objection', 'Competitor'" required>
+            </div>
+            <div class="form-group">
+              <label for="nudge-response">Rebuttal Response</label>
+              <textarea id="nudge-response" rows="4" placeholder="Enter the suggested response for reps..." required></textarea>
+              <span class="form-hint">AI will generate variations of this response</span>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-secondary" id="btn-cancel-nudge">Cancel</button>
+              <button type="submit" class="btn-primary" id="btn-save-nudge">Save Nudge</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Tutorial Tab -->
       <div class="tab-content" id="tab-tutorial">
         <div class="content-header">
@@ -447,7 +584,7 @@
                 </svg>
               </div>
               <div class="faq-answer" id="faq-2">
-                <p>CallSteer uses advanced speech recognition and NLP to detect common sales objections. Accuracy improves with clear audio and typical objection patterns.</p>
+                <p>CallSteer uses a hybrid AI system combining instant pattern matching and Claude AI analysis. It catches price, timing, authority, competitor, and trust objections with high accuracy. The AI safety net ensures variations are caught even if they don't match exact phrases.</p>
               </div>
             </div>
             <div class="faq-item">
@@ -458,7 +595,7 @@
                 </svg>
               </div>
               <div class="faq-answer" id="faq-3">
-                <p>Audio is processed in real-time and not stored. Only anonymized usage statistics are saved to track your performance metrics.</p>
+                <p>Audio is processed in real-time and not permanently stored. Transcripts and nudge history are saved to power your performance dashboard and will enable post-call coaching features in the future.</p>
               </div>
             </div>
             <div class="faq-item">
@@ -469,7 +606,7 @@
                 </svg>
               </div>
               <div class="faq-answer" id="faq-4">
-                <p>Custom nudges and playbook integration is coming soon! For now, nudges are based on proven sales methodologies.</p>
+                <p>Your company's DNA (pricing, competitors, value props) is already built into every nudge. Full custom playbook integration - where managers can add their own winning rebuttals - is coming soon!</p>
               </div>
             </div>
           </div>

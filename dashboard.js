@@ -16,10 +16,22 @@ async function initDashboard() {
       clientCode = await window.electronAPI.getClientCode();
       clientInfo = await window.electronAPI.getClientInfo();
       console.log('[Dashboard] Loaded client code:', clientCode ? 'present' : 'none');
+      console.log('[Dashboard] Client info:', clientInfo);
     } catch (e) {
       console.error('[Dashboard] Error loading client info:', e);
     }
   }
+
+  // Check if logged in (require both clientCode and clientInfo with rep_name)
+  if (!clientCode || !clientInfo || !clientInfo.rep_name) {
+    console.log('[Dashboard] No credentials or missing rep_name, showing login screen');
+    showLoginScreen();
+    setupLoginForm();
+    return;
+  }
+
+  // Show main dashboard
+  showDashboard();
 
   // Update UI with user info
   updateUserInfo();
@@ -42,10 +54,114 @@ async function initDashboard() {
   console.log('[Dashboard] Initialization complete');
 }
 
+// ==================== LOGIN/LOGOUT SCREENS ====================
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard-main').style.display = 'none';
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard-main').style.display = 'flex';
+}
+
+function setupLoginForm() {
+  const form = document.getElementById('dashboard-login-form');
+  if (form) {
+    form.addEventListener('submit', handleDashboardLogin);
+  }
+}
+
+async function handleDashboardLogin(e) {
+  e.preventDefault();
+
+  const nameInput = document.getElementById('dashboard-rep-name');
+  const codeInput = document.getElementById('dashboard-client-code');
+  const errorEl = document.getElementById('dashboard-login-error');
+  const submitBtn = document.getElementById('dashboard-login-btn');
+
+  const name = nameInput.value.trim();
+  const code = codeInput.value.trim().toUpperCase();
+
+  if (!name || !code) {
+    errorEl.textContent = 'Please enter your name and company code';
+    return;
+  }
+
+  // Show loading state
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Signing in...';
+  errorEl.textContent = '';
+
+  try {
+    // Validate client code with backend
+    console.log('[Dashboard] Validating client code:', code);
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}/api/clients/${code}`);
+    } catch (fetchError) {
+      console.error('[Dashboard] Fetch failed:', fetchError);
+      throw new Error('Could not connect to server. Check your internet connection.');
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Invalid company code');
+      } else {
+        console.error('[Dashboard] HTTP error:', response.status, response.statusText);
+        throw new Error(`Server error (${response.status})`);
+      }
+    }
+
+    const data = await response.json();
+    console.log('[Dashboard] Got client data:', data);
+
+    // Save credentials
+    clientCode = code;
+    clientInfo = {
+      client_code: code,
+      company_name: data.company_name,
+      has_dna: data.has_dna,
+      rep_name: name
+    };
+
+    if (window.electronAPI) {
+      await window.electronAPI.saveClientCode(code);
+      await window.electronAPI.saveClientInfo(clientInfo);
+    }
+
+    console.log('[Dashboard] Login successful:', name, code);
+
+    // Show dashboard
+    showDashboard();
+
+    // Initialize dashboard features
+    updateUserInfo();
+    setupTabNavigation();
+
+    const launchBtn = document.getElementById('btn-launch-widget');
+    if (launchBtn) {
+      launchBtn.addEventListener('click', launchWidget);
+    }
+
+    await loadTodayStats();
+    setInterval(loadTodayStats, 30000);
+
+  } catch (error) {
+    console.error('[Dashboard] Login error:', error);
+    errorEl.textContent = error.message;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign In';
+  }
+}
+
 // ==================== USER INFO ====================
 
 function updateUserInfo() {
-  const userName = clientInfo?.rep_name || 'Rep';
+  // Try clientInfo first, fall back to localStorage for backwards compatibility
+  const userName = clientInfo?.rep_name || localStorage.getItem('callsteer_rep_name') || 'Rep';
   const companyName = clientInfo?.company_name || 'Company';
 
   // Update sidebar footer
@@ -514,9 +630,16 @@ function updateSettingsInfo() {
   const companyEl = document.getElementById('settings-company');
   const clientCodeEl = document.getElementById('settings-client-code');
 
-  if (nameEl) nameEl.textContent = clientInfo?.rep_name || '-';
-  if (companyEl) companyEl.textContent = clientInfo?.company_name || '-';
-  if (clientCodeEl) clientCodeEl.textContent = clientCode || '-';
+  // Try multiple sources: clientInfo (from electronAPI), then localStorage
+  const repName = clientInfo?.rep_name || localStorage.getItem('callsteer_rep_name') || '-';
+  const companyName = clientInfo?.company_name || localStorage.getItem('callsteer_company_name') || '-';
+  const code = clientCode || localStorage.getItem('callsteer_client_code') || '-';
+
+  if (nameEl) nameEl.textContent = repName;
+  if (companyEl) companyEl.textContent = companyName;
+  if (clientCodeEl) clientCodeEl.textContent = code;
+
+  console.log('[Dashboard] Settings loaded:', { repName, companyName, clientCode: code });
 }
 
 async function loadAppVersion() {
@@ -527,9 +650,13 @@ async function loadAppVersion() {
     try {
       const version = await window.electronAPI.getAppVersion();
       versionEl.textContent = `v${version}`;
+      console.log('[Dashboard] App version:', version);
     } catch (e) {
-      versionEl.textContent = '-';
+      console.error('[Dashboard] Error getting version:', e);
+      versionEl.textContent = 'v1.0.0';  // Fallback
     }
+  } else {
+    versionEl.textContent = 'v1.0.0';  // Fallback when not in Electron
   }
 }
 
@@ -547,27 +674,74 @@ async function checkForUpdates() {
 async function handleLogout() {
   console.log('[Dashboard] Logging out...');
 
+  // Clear electronAPI stored credentials (this clears the JSON config file)
   if (window.electronAPI) {
     try {
       await window.electronAPI.clearClientCode();
-      // Reload the app to show login
-      window.location.reload();
+      console.log('[Dashboard] Credentials cleared');
     } catch (e) {
-      console.error('[Dashboard] Error logging out:', e);
+      console.error('[Dashboard] Error clearing client code:', e);
     }
   }
+
+  // Clear local state
+  clientCode = null;
+  clientInfo = null;
+
+  // Clear login form
+  const nameInput = document.getElementById('dashboard-rep-name');
+  const codeInput = document.getElementById('dashboard-client-code');
+  const errorEl = document.getElementById('dashboard-login-error');
+  if (nameInput) nameInput.value = '';
+  if (codeInput) codeInput.value = '';
+  if (errorEl) errorEl.textContent = '';
+
+  // Show login screen
+  showLoginScreen();
+  setupLoginForm();
+
+  console.log('[Dashboard] Logged out, showing login screen');
 }
 
+// Shared localStorage keys for widget-dashboard sync
+const SETTINGS_KEYS = {
+  'toggle-notifications': 'callsteer_nudge_sound',       // 'on' or 'off'
+  'toggle-auto-copy': 'callsteer_auto_copy',             // 'true' or 'false'
+  'toggle-always-on-top': 'callsteer_always_on_top'      // 'true' or 'false'
+};
+
 function setupToggles() {
-  // These toggles would persist settings - for now they're visual only
-  // In future, connect to electronAPI.savePreferences()
-  const toggles = ['toggle-notifications', 'toggle-auto-copy', 'toggle-always-on-top'];
-  toggles.forEach(toggleId => {
+  // Persist settings to localStorage for widget sync
+  Object.entries(SETTINGS_KEYS).forEach(([toggleId, storageKey]) => {
     const toggle = document.getElementById(toggleId);
     if (toggle) {
+      // Load saved state
+      const savedValue = localStorage.getItem(storageKey);
+      if (savedValue !== null) {
+        // For nudge sound: 'on' = checked, 'off' = unchecked
+        // For others: 'true' = checked, 'false' = unchecked
+        if (toggleId === 'toggle-notifications') {
+          toggle.checked = savedValue !== 'off';
+        } else {
+          toggle.checked = savedValue === 'true';
+        }
+      }
+
+      // Save on change
       toggle.addEventListener('change', () => {
-        console.log(`[Dashboard] Toggle ${toggleId}:`, toggle.checked);
-        // TODO: Persist preference
+        let value;
+        if (toggleId === 'toggle-notifications') {
+          value = toggle.checked ? 'on' : 'off';
+        } else {
+          value = toggle.checked ? 'true' : 'false';
+        }
+        localStorage.setItem(storageKey, value);
+        console.log(`[Dashboard] Setting ${storageKey}:`, value);
+
+        // For always-on-top, also notify main process
+        if (toggleId === 'toggle-always-on-top' && window.electronAPI?.setAlwaysOnTop) {
+          window.electronAPI.setAlwaysOnTop(toggle.checked);
+        }
       });
     }
   });
@@ -583,6 +757,9 @@ function onTabSwitch(tabId) {
     case 'leaderboard':
       loadLeaderboard();
       break;
+    case 'playbook':
+      loadPlaybook();
+      break;
     case 'settings':
       updateSettingsInfo();
       break;
@@ -596,6 +773,295 @@ switchTab = function(tabId) {
   onTabSwitch(tabId);
 };
 
+// ==================== PLAYBOOK TAB ====================
+
+let currentEditNudgeId = null;
+let playbookData = [];
+
+function setupPlaybookTab() {
+  // Setup Add Nudge button
+  const addBtn = document.getElementById('btn-add-nudge');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => openPlaybookModal());
+  }
+
+  // Setup modal close button
+  const closeBtn = document.getElementById('modal-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closePlaybookModal);
+  }
+
+  // Setup cancel button
+  const cancelBtn = document.getElementById('btn-cancel-nudge');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closePlaybookModal);
+  }
+
+  // Setup form submit
+  const form = document.getElementById('playbook-form');
+  if (form) {
+    form.addEventListener('submit', handlePlaybookSubmit);
+  }
+
+  // Close modal when clicking overlay
+  const modal = document.getElementById('playbook-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePlaybookModal();
+    });
+  }
+}
+
+async function loadPlaybook() {
+  if (!clientCode) return;
+
+  console.log('[Dashboard] Loading playbook...');
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[Dashboard] Playbook data:', data);
+
+    playbookData = data.nudges || [];
+
+    // Update stats
+    updatePlaybookStats(data);
+
+    // Render nudge list
+    renderPlaybookList(playbookData);
+
+  } catch (e) {
+    console.error('[Dashboard] Error loading playbook:', e);
+    document.getElementById('playbook-empty').style.display = 'flex';
+  }
+}
+
+async function loadPlaybookAnalytics() {
+  if (!clientCode) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/analytics`);
+
+    if (response.ok) {
+      const analytics = await response.json();
+      document.getElementById('playbook-total').textContent = analytics.total_nudges || 0;
+      document.getElementById('playbook-active').textContent = analytics.active_nudges || 0;
+      document.getElementById('playbook-adoption').textContent = `${analytics.adoption_rate || 0}%`;
+      document.getElementById('playbook-triggered').textContent = analytics.total_triggered || 0;
+    }
+  } catch (e) {
+    console.error('[Dashboard] Error loading playbook analytics:', e);
+  }
+}
+
+function updatePlaybookStats(data) {
+  const nudges = data.nudges || [];
+  const active = nudges.filter(n => n.is_active).length;
+  const totalTriggered = nudges.reduce((sum, n) => sum + (n.times_triggered || 0), 0);
+  const totalAdopted = nudges.reduce((sum, n) => sum + (n.times_adopted || 0), 0);
+  const adoptionRate = totalTriggered > 0 ? Math.round((totalAdopted / totalTriggered) * 100) : 0;
+
+  document.getElementById('playbook-total').textContent = nudges.length;
+  document.getElementById('playbook-active').textContent = active;
+  document.getElementById('playbook-adoption').textContent = `${adoptionRate}%`;
+  document.getElementById('playbook-triggered').textContent = totalTriggered;
+}
+
+function renderPlaybookList(nudges) {
+  const container = document.getElementById('playbook-list');
+  const emptyState = document.getElementById('playbook-empty');
+
+  if (!nudges || nudges.length === 0) {
+    emptyState.style.display = 'flex';
+    // Remove any existing nudge cards
+    container.querySelectorAll('.playbook-card').forEach(el => el.remove());
+    return;
+  }
+
+  emptyState.style.display = 'none';
+
+  // Remove existing cards
+  container.querySelectorAll('.playbook-card').forEach(el => el.remove());
+
+  // Add nudge cards
+  nudges.forEach(nudge => {
+    const card = document.createElement('div');
+    card.className = `playbook-card ${nudge.is_active ? '' : 'inactive'}`;
+    card.innerHTML = `
+      <div class="playbook-card-header">
+        <div class="playbook-category">${escapeHtml(nudge.category)}</div>
+        <div class="playbook-status ${nudge.is_active ? 'active' : 'inactive'}">
+          ${nudge.is_active ? 'Active' : 'Inactive'}
+        </div>
+      </div>
+      <div class="playbook-trigger">
+        <span class="trigger-label">Trigger:</span>
+        <span class="trigger-phrase">"${escapeHtml(nudge.trigger_phrase)}"</span>
+        <span class="trigger-type">${nudge.trigger_type}</span>
+      </div>
+      <div class="playbook-response">
+        <strong>Response:</strong> ${escapeHtml(nudge.base_response)}
+      </div>
+      ${nudge.ai_variations && nudge.ai_variations.length > 0 ? `
+        <div class="playbook-variations">
+          <span class="variations-label">${nudge.ai_variations.length} AI variations</span>
+        </div>
+      ` : ''}
+      <div class="playbook-stats-row">
+        <span>Triggered: ${nudge.times_triggered || 0}</span>
+        <span>Adopted: ${nudge.times_adopted || 0}</span>
+        <span>Effectiveness: ${nudge.effectiveness || 0}%</span>
+      </div>
+      <div class="playbook-actions">
+        <button class="btn-edit" onclick="editNudge(${nudge.id})">Edit</button>
+        <button class="btn-toggle" onclick="toggleNudge(${nudge.id}, ${!nudge.is_active})">
+          ${nudge.is_active ? 'Disable' : 'Enable'}
+        </button>
+        <button class="btn-delete" onclick="deleteNudge(${nudge.id})">Delete</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function openPlaybookModal(nudge = null) {
+  const modal = document.getElementById('playbook-modal');
+  const title = document.getElementById('modal-title');
+  const form = document.getElementById('playbook-form');
+
+  if (nudge) {
+    // Edit mode
+    currentEditNudgeId = nudge.id;
+    title.textContent = 'Edit Custom Nudge';
+    document.getElementById('nudge-trigger').value = nudge.trigger_phrase;
+    document.getElementById('nudge-trigger-type').value = nudge.trigger_type;
+    document.getElementById('nudge-category').value = nudge.category;
+    document.getElementById('nudge-response').value = nudge.base_response;
+  } else {
+    // Add mode
+    currentEditNudgeId = null;
+    title.textContent = 'Add Custom Nudge';
+    form.reset();
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closePlaybookModal() {
+  const modal = document.getElementById('playbook-modal');
+  modal.style.display = 'none';
+  currentEditNudgeId = null;
+}
+
+async function handlePlaybookSubmit(e) {
+  e.preventDefault();
+
+  const trigger = document.getElementById('nudge-trigger').value.trim();
+  const triggerType = document.getElementById('nudge-trigger-type').value;
+  const category = document.getElementById('nudge-category').value.trim();
+  const response = document.getElementById('nudge-response').value.trim();
+
+  if (!trigger || !category || !response) {
+    alert('Please fill in all required fields');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btn-save-nudge');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    let url, method;
+    const body = {
+      trigger_phrase: trigger,
+      trigger_type: triggerType,
+      category: category,
+      base_response: response
+    };
+
+    if (currentEditNudgeId) {
+      // Update existing
+      url = `${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${currentEditNudgeId}`;
+      method = 'PATCH';
+    } else {
+      // Create new
+      url = `${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges`;
+      method = 'POST';
+      body.created_by = clientInfo?.rep_name || 'Manager';
+    }
+
+    const res = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log('[Dashboard] Nudge saved:', data);
+
+    closePlaybookModal();
+    await loadPlaybook();
+
+  } catch (err) {
+    console.error('[Dashboard] Error saving nudge:', err);
+    alert('Failed to save nudge. Please try again.');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Nudge';
+  }
+}
+
+function editNudge(nudgeId) {
+  const nudge = playbookData.find(n => n.id === nudgeId);
+  if (nudge) {
+    openPlaybookModal(nudge);
+  }
+}
+
+async function toggleNudge(nudgeId, newState) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${nudgeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: newState })
+    });
+
+    if (res.ok) {
+      await loadPlaybook();
+    }
+  } catch (err) {
+    console.error('[Dashboard] Error toggling nudge:', err);
+  }
+}
+
+async function deleteNudge(nudgeId) {
+  if (!confirm('Are you sure you want to delete this nudge?')) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${nudgeId}`, {
+      method: 'DELETE'
+    });
+
+    if (res.ok) {
+      await loadPlaybook();
+    }
+  } catch (err) {
+    console.error('[Dashboard] Error deleting nudge:', err);
+    alert('Failed to delete nudge.');
+  }
+}
+
 // ==================== START ====================
 
 async function initDashboardComplete() {
@@ -604,6 +1070,7 @@ async function initDashboardComplete() {
   // Setup all tab functionality
   setupPerformanceTab();
   setupLeaderboardTab();
+  setupPlaybookTab();
   setupTutorialTab();
   setupSettingsTab();
 }

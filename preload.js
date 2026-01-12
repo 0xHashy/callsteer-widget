@@ -86,5 +86,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dashboard/Widget navigation
   launchWidget: () => ipcRenderer.invoke('launch-widget'),
   openDashboard: () => ipcRenderer.invoke('open-dashboard'),
-  focusDashboard: () => ipcRenderer.invoke('focus-dashboard')
+  focusDashboard: () => ipcRenderer.invoke('focus-dashboard'),
+
+  // Window settings (synced with dashboard)
+  setAlwaysOnTop: (enabled) => ipcRenderer.invoke('set-always-on-top', enabled)
 });

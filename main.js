@@ -57,7 +57,7 @@ const clientConfigPath = path.join(app.getPath('userData'), 'client-config.json'
 const DEFAULT_WIDTH = 380;   // Comfortable default
 const DEFAULT_HEIGHT = 600;  // Shows main content well
 const MIN_WIDTH = 280;       // Minimum - shows header, power button, nudge card
-const MIN_HEIGHT = 350;      // Minimum - prioritizes essential controls
+const MIN_HEIGHT = 280;      // Minimum - enough for header + toggle + nudge card visible
 const MAX_WIDTH = 500;       // Maximum width
 const MAX_HEIGHT = 850;      // Maximum for detailed stats view
 
@@ -310,12 +310,28 @@ function createTray() {
 }
 
 // IPC handlers
-ipcMain.on('minimize-window', () => {
-  mainWindow.minimize();  // Minimize to taskbar instead of hiding
+ipcMain.on('minimize-window', (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    senderWindow.minimize();
+  }
 });
 
-ipcMain.on('close-window', () => {
-  mainWindow.hide();  // Close button hides to tray
+ipcMain.on('close-window', (event) => {
+  // Close/hide the window that sent this event
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    // If it's the widget window, just close it (dashboard stays open)
+    if (senderWindow === widgetWindow) {
+      senderWindow.close();
+    } else if (senderWindow === mainWindow) {
+      // Legacy: hide main window to tray
+      senderWindow.hide();
+    } else {
+      // Default: close the window
+      senderWindow.close();
+    }
+  }
 });
 
 
@@ -405,6 +421,21 @@ ipcMain.handle('run-command', (event, cmd) => {
   }
 
   console.warn('[Main] Command not allowed:', cmd);
+  return false;
+});
+
+// Set always-on-top for widget windows (synced with dashboard setting)
+ipcMain.handle('set-always-on-top', (event, enabled) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (enabled) {
+      win.setAlwaysOnTop(true, 'screen-saver');
+    } else {
+      win.setAlwaysOnTop(false);
+    }
+    console.log(`[Main] Always on top: ${enabled}`);
+    return true;
+  }
   return false;
 });
 

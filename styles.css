@@ -192,9 +192,24 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-[data-theme="light"] .header {
+[data-theme="light"] .header,
+[data-theme="light"] .widget-header {
   background: rgba(255, 255, 255, 0.5);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .window-controls.windows-style .control-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .window-controls.windows-style .control-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .window-controls.windows-style .control-btn.close:hover {
+  background: #e81123;
+  color: #fff;
 }
 
 [data-theme="light"] .footer {
@@ -358,6 +373,38 @@ button, select {
 
 /* ==================== RESPONSIVE SCALING ==================== */
 
+/* Medium-narrow widget (under 350px wide) - hide user greeting */
+@container widget (max-width: 350px) {
+  .user-greeting {
+    display: none;
+  }
+
+  .header-left {
+    min-width: 80px;
+  }
+}
+
+/* Narrow widget (under 300px wide) - smaller branding */
+@container widget (max-width: 300px) {
+  .brand-text {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+  }
+
+  .header-left {
+    min-width: 70px;
+    gap: 2px;
+  }
+
+  .header-right {
+    min-width: 70px;
+  }
+
+  .window-control-btn {
+    width: 35px;
+  }
+}
+
 /* Small widget (under 250px wide) - hide non-essential elements */
 @container widget (max-width: 250px) {
   .device-section {
@@ -428,8 +475,10 @@ button, select {
 
 /* Very small widget (under 220px wide) - minimal UI */
 @container widget (max-width: 220px) {
-  .header {
-    padding: 6px 10px;
+  .header,
+  .widget-header {
+    padding: 4px 0 4px 6px;
+    min-height: 32px;
   }
 
   .content {
@@ -440,6 +489,17 @@ button, select {
   .toggle-section {
     flex-direction: column;
     gap: 6px;
+    padding: 4px 0;
+  }
+
+  .power-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .power-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .listening-indicator {
@@ -467,6 +527,33 @@ button, select {
   .nudge-text {
     margin-bottom: 6px;
   }
+
+  /* Hide user greeting in very small mode */
+  .user-greeting {
+    display: none;
+  }
+
+  /* Compact window controls */
+  .window-control-btn {
+    width: 32px;
+    height: 28px;
+  }
+
+  /* Hide center branding in very small mode */
+  .header-center {
+    display: none;
+  }
+}
+
+/* Short widget (under 350px tall) - hide audio config completely */
+@container widget (max-height: 350px) {
+  .audio-config-section {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
 }
 
 /* Short widget (under 300px tall) - compact vertical spacing */
@@ -492,12 +579,19 @@ button, select {
   .listening-indicator {
     padding: 4px 8px;
   }
+
+  .toggle-section {
+    min-height: 60px;
+    padding: 8px 0;
+  }
 }
 
 /* Very short widget (under 250px tall) */
 @container widget (max-height: 250px) {
-  .header {
-    padding: 6px 10px;
+  .header,
+  .widget-header {
+    padding: 4px 0 4px 8px;
+    min-height: 32px;
   }
 
   .footer {
@@ -515,10 +609,152 @@ button, select {
   .toggle-hint {
     font-size: 8px;
   }
+
+  .toggle-section {
+    padding: 4px 0;
+    min-height: 50px;
+  }
+
+  .power-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .power-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .content {
+    padding: 6px 10px;
+    gap: 4px;
+  }
+
+  .nudge-card {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .nudge-text {
+    font-size: 11px;
+    line-height: 1.3;
+  }
 }
 
-/* ==================== HEADER ==================== */
+/* ==================== HEADER - Windows Style Three-Section Layout ==================== */
 
+.widget-header {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 8px 12px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--header-bg);
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+/* Left section - user greeting and action icons */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+  min-width: 100px; /* Fixed width to balance right side */
+  flex-shrink: 0;
+}
+
+/* Center section - branding (flexbox centered, NOT absolute) */
+.header-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* So it doesn't block clicks on icons */
+  overflow: visible; /* Don't clip text */
+  white-space: nowrap; /* Keep on one line */
+}
+
+/* Branding text - CALLSTEER in white/black, .AI ALWAYS cyan */
+.brand-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  overflow: visible; /* Never clip */
+}
+
+.brand-name {
+  color: var(--text-primary); /* White on dark, black on light */
+}
+
+.brand-ai {
+  color: #00C8D4; /* ALWAYS cyan - never changes with theme */
+  font-weight: 600;
+}
+
+/* Light mode override for brand name */
+[data-theme="light"] .brand-name {
+  color: #000000;
+}
+
+/* Right section - window controls */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
+  min-width: 92px; /* Fixed width: 46px * 2 buttons */
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* Windows-style window control buttons */
+.window-control-btn {
+  width: 46px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.window-control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.window-control-btn.close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.window-control-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Light mode window controls */
+[data-theme="light"] .window-control-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .window-control-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .window-control-btn.close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+/* Legacy .header class support (for any old references) */
 .header {
   -webkit-app-region: drag;
   display: flex;
@@ -529,12 +765,48 @@ button, select {
   background: var(--header-bg);
 }
 
+/* Legacy window-controls (for backwards compatibility) */
 .window-controls {
   display: flex;
-  gap: 6px;
+  gap: 0;
+  margin-left: auto;
   -webkit-app-region: no-drag;
 }
 
+.window-controls.windows-style {
+  gap: 0;
+}
+
+.window-controls.windows-style .control-btn {
+  width: 32px;
+  height: 26px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.window-controls.windows-style .control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.window-controls.windows-style .control-btn.close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.window-controls.windows-style .control-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Legacy macOS-style controls (keeping for backwards compatibility) */
 .control-btn {
   width: 10px;
   height: 10px;
@@ -555,6 +827,14 @@ button, select {
 .control-btn:hover {
   opacity: 1;
   transform: scale(1.1);
+}
+
+/* Header left section - contains icons and brand */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
 }
 
 .header-brand {
@@ -590,17 +870,19 @@ button, select {
   font-weight: 700;
 }
 
-/* User Greeting */
+/* User Greeting - positioned first in header-left */
 .user-greeting {
   font-size: 11px;
   color: var(--text-secondary);
-  margin-left: auto;
-  margin-right: 8px;
+  margin-right: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
-  pointer-events: none;
+  max-width: 70px;
+}
+
+.user-greeting:empty {
+  display: none;
 }
 
 .user-greeting .rep-name {
@@ -608,8 +890,9 @@ button, select {
   font-weight: 600;
 }
 
-/* Theme Toggle Button */
-.theme-toggle-btn {
+/* Theme Toggle Button - works with both .theme-toggle-btn and .header-icon-btn.theme-toggle */
+.theme-toggle-btn,
+.header-icon-btn.theme-toggle {
   -webkit-app-region: no-drag;
   background: rgba(255, 255, 255, 0.08);
   border: none;
@@ -623,33 +906,40 @@ button, select {
   color: var(--text-muted);
 }
 
-.theme-toggle-btn:hover {
+.theme-toggle-btn:hover,
+.header-icon-btn.theme-toggle:hover {
   background: rgba(0, 199, 190, 0.2);
   color: var(--accent);
 }
 
 /* Show sun in dark mode, moon in light mode */
-.theme-toggle-btn .sun-icon {
+.theme-toggle-btn .sun-icon,
+.header-icon-btn.theme-toggle .sun-icon {
   display: block;
 }
 
-.theme-toggle-btn .moon-icon {
+.theme-toggle-btn .moon-icon,
+.header-icon-btn.theme-toggle .moon-icon {
   display: none;
 }
 
-[data-theme="light"] .theme-toggle-btn .sun-icon {
+[data-theme="light"] .theme-toggle-btn .sun-icon,
+[data-theme="light"] .header-icon-btn.theme-toggle .sun-icon {
   display: none;
 }
 
-[data-theme="light"] .theme-toggle-btn .moon-icon {
+[data-theme="light"] .theme-toggle-btn .moon-icon,
+[data-theme="light"] .header-icon-btn.theme-toggle .moon-icon {
   display: block;
 }
 
-[data-theme="light"] .theme-toggle-btn {
+[data-theme="light"] .theme-toggle-btn,
+[data-theme="light"] .header-icon-btn.theme-toggle {
   background: rgba(0, 0, 0, 0.05);
 }
 
-[data-theme="light"] .theme-toggle-btn:hover {
+[data-theme="light"] .theme-toggle-btn:hover,
+[data-theme="light"] .header-icon-btn.theme-toggle:hover {
   background: rgba(0, 153, 170, 0.15);
 }
 
@@ -683,8 +973,10 @@ button, select {
   display: flex;
   flex-direction: column;
   padding: 12px 14px;
+  padding-bottom: 16px; /* Extra bottom padding to prevent clipping */
   gap: 10px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ==================== SECTIONS ==================== */
@@ -760,6 +1052,9 @@ button, select {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex-shrink: 1; /* Can shrink to make room for toggle */
+  min-height: 0; /* Allow to shrink below natural height */
+  overflow: hidden;
 }
 
 .audio-config-row {
@@ -984,7 +1279,9 @@ button, select {
   justify-content: space-between;
   background: transparent;
   border: none;
-  padding: 0;
+  padding: 12px 0;
+  flex-shrink: 0; /* NEVER shrink - priority element */
+  min-height: 80px;
 }
 
 .toggle-info {
@@ -1013,6 +1310,8 @@ button, select {
 .power-btn {
   width: 48px;
   height: 48px;
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 50%;
   border: 2px solid var(--glass-border);
   background: var(--input-bg);
@@ -1021,6 +1320,7 @@ button, select {
   justify-content: center;
   transition: all 0.2s ease;
   position: relative;
+  flex-shrink: 0;
 }
 
 .power-btn:hover {
@@ -1113,6 +1413,9 @@ button, select {
 .nudge-section {
   min-height: 70px;
   position: relative;
+  flex-shrink: 0;
+  padding-bottom: 8px; /* Extra breathing room to prevent clipping */
+  overflow: visible; /* Don't clip nudge card */
 }
 
 .nudge-empty {
@@ -1143,6 +1446,7 @@ button, select {
   padding: 12px;
   position: relative;
   animation: nudgeAppear 0.3s ease-out;
+  margin-bottom: 4px; /* Ensure bottom isn't cut off */
 }
 
 /* Navigation arrow indicator */

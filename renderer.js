@@ -220,6 +220,9 @@ async function initializeApp() {
   // Load nudge sound preference
   loadNudgeSoundPreference();
 
+  // Load always-on-top preference (synced with dashboard)
+  loadAlwaysOnTopPreference();
+
   // Load saved rep name if exists (for returning users)
   repName = localStorage.getItem('callsteer_rep_name') || null;
 
@@ -972,6 +975,25 @@ function loadNudgeSoundPreference() {
   }
 }
 
+/**
+ * Load always-on-top preference from localStorage (synced with dashboard)
+ */
+function loadAlwaysOnTopPreference() {
+  try {
+    const setting = localStorage.getItem('callsteer_always_on_top');
+    // Default to true (always on top) if not set
+    const isEnabled = setting !== 'false';
+    console.log('[Init] Always on top preference:', isEnabled ? 'ON' : 'OFF');
+
+    // Apply setting via electronAPI
+    if (window.electronAPI?.setAlwaysOnTop) {
+      window.electronAPI.setAlwaysOnTop(isEnabled);
+    }
+  } catch (e) {
+    console.error('[Init] Failed to load always-on-top preference:', e);
+  }
+}
+
 async function handleSignOut() {
   // Stop listening if active
   if (isListening) {
@@ -1158,6 +1180,8 @@ async function handleLogin() {
     // Save rep name and generate rep ID
     repName = name;
     localStorage.setItem('callsteer_rep_name', repName);
+    localStorage.setItem('callsteer_company_name', data.company_name);
+    localStorage.setItem('callsteer_client_code', code);
     repId = generateRepId(repName);
     console.log('[Auth] Rep logged in:', repName, 'ID:', repId);
 
@@ -1165,7 +1189,8 @@ async function handleLogin() {
     clientInfo = {
       client_code: code,
       company_name: data.company_name,
-      has_dna: data.has_dna
+      has_dna: data.has_dna,
+      rep_name: repName  // Include rep name for dashboard
     };
 
     if (window.electronAPI) {
@@ -2036,6 +2061,9 @@ function displayNudge(nudge) {
   repTranscriptBuffer = []; // Clear buffer when new nudge appears
   console.log('[Rebuttal] Tracking suggestion:', currentSuggestionText);
 
+  // Auto-copy to clipboard if enabled (synced with dashboard setting)
+  autoCopyNudge(suggestion);
+
   if (echo && echo.trim()) {
     // Display echo on its own line, styled differently
     nudgeText.innerHTML = `<span class="nudge-echo">"${echo}"</span><span class="nudge-suggestion">${suggestion}</span>`;
@@ -2571,6 +2599,37 @@ function isNudgeSoundEnabled() {
     return setting !== 'off';
   } catch (e) {
     return true;
+  }
+}
+
+/**
+ * Check if auto-copy is enabled (synced with dashboard setting)
+ */
+function isAutoCopyEnabled() {
+  try {
+    const setting = localStorage.getItem('callsteer_auto_copy');
+    // Default to OFF if not set (user must opt-in)
+    return setting === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Auto-copy nudge suggestion to clipboard if enabled
+ */
+function autoCopyNudge(suggestion) {
+  if (!isAutoCopyEnabled() || !suggestion) return;
+
+  try {
+    if (window.electronAPI?.copyToClipboard) {
+      window.electronAPI.copyToClipboard(suggestion);
+    } else {
+      navigator.clipboard.writeText(suggestion);
+    }
+    console.log('[AutoCopy] Copied suggestion to clipboard');
+  } catch (e) {
+    console.error('[AutoCopy] Failed:', e);
   }
 }
 
@@ -4828,14 +4887,25 @@ async function sendTranscriptToBackend(transcript, speaker) {
     }
 
     const data = await response.json();
-    console.log('[Backend] <<< Response:', JSON.stringify(data).substring(0, 200));
+
+    // Log full usage object for debugging persistence and token tracking
+    if (data.usage) {
+      console.log('[Backend] <<< Usage:', JSON.stringify(data.usage, null, 2));
+    }
 
     if (data.nudge) {
       console.log('[Backend] Nudge received:', data.nudge);
+      console.log(`[Backend] Persistence: count=${data.persistence_count}, layer=${data.persistence_layer}`);
       lastNudgeTime = Date.now();
       processNudges([data.nudge]);
     } else {
-      console.log('[Backend] No nudge returned (Claude said null)');
+      const reason = data.usage?.reason || data.usage?.source || 'no match';
+      console.log(`[Backend] No nudge returned (${reason})`);
+
+      // Check for stop signal (MAX_PERSISTENCE reached)
+      if (data.usage?.stop_signal) {
+        console.log(`[Backend] 🛑 STOP SIGNAL: ${data.usage.reason}`);
+      }
     }
 
   } catch (error) {
