@@ -564,6 +564,9 @@ function debugMainWidget() {
   // Load rebuttal tracking stats
   loadRebuttalStats();
   updateStats();
+
+  // Update header greeting
+  updateGreeting();
 }
 
 /**
@@ -3426,12 +3429,20 @@ let vbCableTestAnimationId = null;
 let vbCableAudioDetected = false;
 let vbCableNoAudioTimeout = null;
 
+// Check if VB-Cable has been configured before
+function isVBCableConfigured() {
+  return localStorage.getItem('callsteer_vbcable_configured') === 'true';
+}
+
 // Show VB-Cable setup modal (Step 1: Installation)
 function showVBCableSetupModal() {
   // Remove existing modal if any
   const existingModal = document.getElementById('vbcable-modal');
   if (existingModal) existingModal.remove();
   cleanupVBCableTest();
+
+  // Don't show Chrome extension alternative if VB-Cable was previously configured
+  const showChromeAlt = !isVBCableConfigured();
 
   const modal = document.createElement('div');
   modal.id = 'vbcable-modal';
@@ -3517,6 +3528,7 @@ function showVBCableSetupModal() {
           </div>
         </div>
 
+        ${showChromeAlt ? `
         <div class="chrome-extension-alternative">
           <div class="alternative-divider">
             <span>OR</span>
@@ -3530,6 +3542,7 @@ function showVBCableSetupModal() {
             <button class="btn-chrome" onclick="openChromeExtension()">Use Chrome Extension</button>
           </div>
         </div>
+        ` : ''}
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeVBCableModal()">Cancel</button>
@@ -4210,6 +4223,11 @@ function cleanupVBCableTest() {
 function finishVBCableSetup() {
   cleanupVBCableTest();
   closeVBCableModal();
+
+  // Mark VB-Cable as configured - stops showing Chrome extension prompts
+  localStorage.setItem('callsteer_vbcable_configured', 'true');
+  console.log('[VB-Cable] Setup complete, marked as configured');
+
   showToast('VB-Cable detected and working! Your calls will now be captured automatically.', 'success');
   startSystemAudioCapture();
 }
