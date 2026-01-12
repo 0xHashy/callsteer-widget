@@ -81,5 +81,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resizeWindow: (bounds) => ipcRenderer.invoke('resize-window', bounds),
 
   // Delta-based window resize (synchronous, more responsive)
-  resizeWindowDelta: (deltaX, deltaY, edge) => ipcRenderer.send('resize-window-delta', { deltaX, deltaY, edge })
+  resizeWindowDelta: (deltaX, deltaY, edge) => ipcRenderer.send('resize-window-delta', { deltaX, deltaY, edge }),
+
+  // Dashboard/Widget navigation
+  launchWidget: () => ipcRenderer.invoke('launch-widget'),
+  openDashboard: () => ipcRenderer.invoke('open-dashboard'),
+  focusDashboard: () => ipcRenderer.invoke('focus-dashboard')
 });

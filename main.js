@@ -44,6 +44,10 @@ function getAutoUpdater() {
 let mainWindow;
 let tray;
 
+// Dashboard Mode: Two window types
+let dashboardWindow = null;
+let widgetWindow = null;
+
 // Config file paths
 const configPath = path.join(app.getPath('userData'), 'window-config.json');
 const clientConfigPath = path.join(app.getPath('userData'), 'client-config.json');
@@ -530,12 +534,176 @@ ipcMain.handle('resize-window', (event, { width, height, x, y }) => {
   return false;
 });
 
+// ============================================
+// DASHBOARD MODE - TWO WINDOW SYSTEM
+// ============================================
+
+// Dashboard window configuration
+const DASHBOARD_WIDTH = 900;
+const DASHBOARD_HEIGHT = 700;
+const DASHBOARD_MIN_WIDTH = 700;
+const DASHBOARD_MIN_HEIGHT = 500;
+
+function createDashboardWindow() {
+  // Load the app icon
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'build', 'icon.ico')
+    : path.join(__dirname, 'build', 'icon.png');
+
+  dashboardWindow = new BrowserWindow({
+    width: DASHBOARD_WIDTH,
+    height: DASHBOARD_HEIGHT,
+    minWidth: DASHBOARD_MIN_WIDTH,
+    minHeight: DASHBOARD_MIN_HEIGHT,
+    frame: true,  // Normal window frame with title bar
+    alwaysOnTop: false,
+    resizable: true,
+    icon: iconPath,
+    title: 'CallSteer Dashboard',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false
+    }
+  });
+
+  dashboardWindow.loadFile('dashboard.html');
+
+  // DevTools - F12 or Ctrl+Shift+I to toggle
+  if (DEV_MODE) {
+    dashboardWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+        dashboardWindow.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    });
+  }
+
+  dashboardWindow.on('closed', () => {
+    dashboardWindow = null;
+    // When dashboard closes, quit app (unless widget is open)
+    if (!widgetWindow) {
+      app.isQuitting = true;
+      app.quit();
+    }
+  });
+
+  return dashboardWindow;
+}
+
+function createWidgetWindow() {
+  // If widget already exists, just focus it
+  if (widgetWindow) {
+    widgetWindow.show();
+    widgetWindow.focus();
+    return widgetWindow;
+  }
+
+  // Get screen dimensions for positioning
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth } = primaryDisplay.workAreaSize;
+
+  // Load the app icon
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'build', 'icon.ico')
+    : path.join(__dirname, 'build', 'icon.png');
+
+  widgetWindow = new BrowserWindow({
+    width: DEFAULT_WIDTH,
+    height: DEFAULT_HEIGHT,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    maxWidth: MAX_WIDTH,
+    maxHeight: MAX_HEIGHT,
+    x: screenWidth - DEFAULT_WIDTH - 20,
+    y: 20,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: true,
+    skipTaskbar: false,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false,
+      enableBlinkFeatures: 'GetDisplayMedia,AudioVideoTracks'
+    }
+  });
+
+  // Grant ALL media permissions automatically
+  widgetWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    console.log(`[Widget] Permission requested: ${permission}`);
+    if (['media', 'microphone', 'audioCapture', 'screen', 'desktopCapture', 'display-capture', 'mediaKeySystem'].includes(permission)) {
+      console.log(`[Widget] Permission GRANTED: ${permission}`);
+      callback(true);
+    } else {
+      callback(true);
+    }
+  });
+
+  widgetWindow.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    return true;
+  });
+
+  // Set always on top with highest level
+  widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+
+  widgetWindow.loadFile('widget.html');
+
+  // DevTools for widget
+  if (DEV_MODE) {
+    widgetWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+        widgetWindow.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    });
+  }
+
+  widgetWindow.on('closed', () => {
+    widgetWindow = null;
+  });
+
+  return widgetWindow;
+}
+
+// IPC handlers for dashboard/widget navigation
+ipcMain.handle('launch-widget', () => {
+  console.log('[Main] Launching widget from dashboard...');
+  createWidgetWindow();
+  return true;
+});
+
+ipcMain.handle('open-dashboard', () => {
+  console.log('[Main] Opening dashboard from widget...');
+  if (dashboardWindow) {
+    dashboardWindow.show();
+    dashboardWindow.focus();
+  } else {
+    createDashboardWindow();
+  }
+  return true;
+});
+
+ipcMain.handle('focus-dashboard', () => {
+  if (dashboardWindow) {
+    dashboardWindow.focus();
+  }
+  return true;
+});
+
 app.whenReady().then(() => {
-  createWindow();
+  // Launch dashboard as the main window (widget only opens on button click)
+  createDashboardWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createDashboardWindow();
     }
   });
 });

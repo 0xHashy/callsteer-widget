@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CallSteer.ai</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="widget" id="login-screen">
+    <!-- Header -->
+    <div class="header" id="login-drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="login-close-btn"></button>
+        <button class="control-btn minimize" id="login-minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
+      </div>
+    </div>
+
+    <!-- Login Content -->
+    <div class="login-content">
+      <div class="logo-container">
+        <!-- Navigation Pin / Location Marker -->
+        <svg class="logo-svg" viewBox="0 0 48 48" width="56" height="56">
+          <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#00C7BE"/>
+              <stop offset="100%" style="stop-color:#4A90D9"/>
+            </linearGradient>
+          </defs>
+          <!-- Location pin with route -->
+          <path d="M24 4C16.3 4 10 10.3 10 18c0 10 14 26 14 26s14-16 14-26c0-7.7-6.3-14-14-14z"
+                fill="none" stroke="url(#logoGradient)" stroke-width="2.5"/>
+          <circle cx="24" cy="18" r="5" fill="url(#logoGradient)"/>
+          <!-- Arrow pointing up (direction) -->
+          <path d="M24 12l-3 4h6l-3-4z" fill="white"/>
+        </svg>
+      </div>
+
+      <h1 class="brand-title">CallSteer<span class="title-ai">.ai</span></h1>
+      <p class="brand-subtitle">Navigate to Close</p>
+
+      <div class="login-form">
+        <input
+          type="text"
+          id="rep-name-input"
+          class="input-field"
+          placeholder="Your name (e.g. John S)"
+          maxlength="30"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="input-hint">Use a unique name you'll remember - this tracks your stats</p>
+        <input
+          type="text"
+          id="client-code-input"
+          class="input-field"
+          placeholder="Company code"
+          maxlength="6"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="login-error" id="login-error"></div>
+        <button class="btn btn-primary" id="connect-btn">
+          <span class="btn-text">Connect</span>
+          <div class="btn-loader" id="login-spinner"></div>
+        </button>
+      </div>
+
+      <a href="#" class="signup-link" id="signup-link">Get a code at callsteer.com</a>
+    </div>
+  </div>
+
+  <!-- Setup Wizard (Audio Setup) -->
+  <div class="widget" id="setup-wizard" style="display: none;">
+    <!-- Header -->
+    <div class="header" id="setup-drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="setup-close-btn"></button>
+        <button class="control-btn minimize" id="setup-minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
+      </div>
+    </div>
+
+    <!-- Step 0: Choose Setup Method -->
+    <div class="setup-content" id="setup-step-0">
+      <h2 class="setup-title">Choose Your Setup</h2>
+      <p class="setup-subtitle">Select how you want to capture call audio</p>
+
+      <div class="setup-choice-cards">
+        <!-- Chrome Extension - Recommended -->
+        <div class="setup-choice-card recommended" id="choice-chrome-extension">
+          <div class="choice-badge">RECOMMENDED</div>
+          <div class="choice-icon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M21.17 8H12"/>
+              <path d="M3.95 6.06L8.54 14"/>
+              <path d="M10.88 21.94L15.46 14"/>
+            </svg>
+          </div>
+          <h3 class="choice-title">Chrome Extension</h3>
+          <ul class="choice-features">
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              One-click setup
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Captures only your call audio
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Works with web-based dialers
+            </li>
+          </ul>
+          <button class="btn btn-primary choice-btn" id="btn-use-chrome-extension">
+            Use Chrome Extension
+          </button>
+        </div>
+
+        <!-- Desktop App - Advanced -->
+        <div class="setup-choice-card" id="choice-desktop-app">
+          <div class="choice-icon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8"/>
+              <path d="M12 17v4"/>
+            </svg>
+          </div>
+          <h3 class="choice-title">Desktop App</h3>
+          <p class="choice-subtitle">Advanced</p>
+          <ul class="choice-features">
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Requires VB-Cable (5 min setup)
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Captures all system audio
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Best for desktop dialers
+            </li>
+          </ul>
+          <button class="btn btn-secondary choice-btn" id="btn-continue-desktop">
+            Continue with Desktop Setup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 1: Microphone Selection -->
+    <div class="setup-content" id="setup-step-1" style="display: none;">
+      <div class="setup-step-indicator">
+        <span class="step-badge">Step 1 of 3</span>
+      </div>
+
+      <h2 class="setup-title">Select Your Microphone</h2>
+      <p class="setup-subtitle">Choose the mic you use for calls</p>
+
+      <!-- Microphone Selection -->
+      <div class="setup-section">
+        <div class="setup-section-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          </svg>
+          Your Microphone
+        </div>
+        <select id="setup-mic-select" class="setup-select">
+          <option value="">Loading microphones...</option>
+        </select>
+      </div>
+
+      <!-- Mic Test Waveform -->
+      <div class="mic-test-section" id="mic-test-section" style="display: none;">
+        <div class="mic-test-label">Speak to test your mic</div>
+        <div class="mic-waveform" id="mic-waveform">
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+        </div>
+        <div class="mic-test-status" id="mic-test-status">Waiting for audio...</div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="setup-back-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-primary" id="setup-next-btn" disabled>
+          Next
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: VB-Cable Listen Setup -->
+    <div class="setup-content" id="setup-step-2" style="display: none;">
+      <div class="setup-step-indicator">
+        <span class="step-badge">Step 2 of 3</span>
+      </div>
+
+      <h2 class="setup-title">Enable "Listen to this device"</h2>
+
+      <!-- Warning callout -->
+      <div class="setup-warning-callout">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div class="warning-callout-text">
+          <strong>Without this step, you won't hear your customers!</strong>
+          <span>VB-Cable routes audio silently unless you enable "Listen"</span>
+        </div>
+      </div>
+
+      <div class="listen-setup-instructions">
+        <button class="btn btn-primary listen-setup-btn" id="open-sound-settings-btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Open Sound Settings
+        </button>
+
+        <div class="listen-steps">
+          <div class="listen-step">
+            <span class="listen-step-number">1</span>
+            <div class="listen-step-content">
+              <span>Go to <strong>"Recording"</strong> tab</span>
+              <span class="listen-step-hint">You'll see a list of audio input devices</span>
+            </div>
+          </div>
+          <div class="listen-step">
+            <span class="listen-step-number">2</span>
+            <div class="listen-step-content">
+              <span>Right-click <strong>"CABLE Output"</strong> → Properties</span>
+              <span class="listen-step-hint">This is the VB-Cable virtual device</span>
+            </div>
+          </div>
+          <div class="listen-step">
+            <span class="listen-step-number">3</span>
+            <div class="listen-step-content">
+              <span>Click the <strong>"Listen"</strong> tab</span>
+            </div>
+          </div>
+          <div class="listen-step">
+            <span class="listen-step-number">4</span>
+            <div class="listen-step-content">
+              <span>Check <strong>"Listen to this device"</strong></span>
+              <span class="listen-step-hint">This sends audio to your headphones</span>
+            </div>
+          </div>
+          <div class="listen-step">
+            <span class="listen-step-number">5</span>
+            <div class="listen-step-content">
+              <span>Choose your headphones from dropdown, click <strong>Apply</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="setup-step2-back-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-ghost" id="setup-skip-listen-btn">
+          Skip for now
+        </button>
+        <button class="btn btn-primary" id="setup-listen-done-btn">
+          I've enabled it
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Final Instructions Screen -->
+    <div class="setup-content" id="setup-step-3" style="display: none;">
+      <div class="setup-step-indicator">
+        <span class="step-badge">Step 3 of 3</span>
+      </div>
+
+      <div class="setup-instructions">
+        <div class="instructions-icon success">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h2 class="setup-title">You're All Set!</h2>
+        <p class="setup-subtitle">CallSteer will listen to your calls and provide real-time coaching.</p>
+
+        <div class="instructions-steps">
+          <div class="instruction-step">
+            <span class="instruction-number">1</span>
+            <span>Click the <strong>power button</strong> to start listening</span>
+          </div>
+          <div class="instruction-step">
+            <span class="instruction-number">2</span>
+            <span>Make calls in Zoom, Dialpad, Teams, or any app</span>
+          </div>
+          <div class="instruction-step">
+            <span class="instruction-number">3</span>
+            <span>Get instant AI coaching when objections arise</span>
+          </div>
+        </div>
+
+        <div class="privacy-note">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Audio is only captured when the power is ON. Turn it OFF between calls.</span>
+        </div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="setup-step3-back-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-primary" id="setup-done-btn">
+          Start Coaching
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Widget -->
+  <div class="widget" id="main-widget" style="display: none;">
+    <!-- Header -->
+    <div class="header" id="drag-area">
+      <div class="window-controls">
+        <button class="control-btn close" id="close-btn"></button>
+        <button class="control-btn minimize" id="minimize-btn"></button>
+      </div>
+      <div class="header-brand">
+        <span class="status-indicator" id="header-status"></span>
+        <span class="header-title">CallSteer<span class="title-ai">.ai</span></span>
+      </div>
+      <div class="user-greeting" id="user-greeting"></div>
+      <button class="header-icon-btn" id="dashboard-btn" title="Open Dashboard">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+      </button>
+      <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Light/Dark Mode">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="sun-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="moon-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <div class="settings-menu-container">
+        <button class="header-icon-btn" id="settings-btn" title="Settings">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <!-- Settings Dropdown Menu -->
+        <div class="settings-dropdown" id="settings-dropdown">
+          <div class="settings-user-info">
+            <span class="settings-user-name" id="settings-rep-name">Rep Name</span>
+            <span class="settings-company" id="settings-company-name">Company</span>
+          </div>
+          <div class="settings-divider"></div>
+          <button class="settings-menu-item" id="menu-audio-setup">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            </svg>
+            Microphone Setup
+          </button>
+          <button class="settings-menu-item" id="menu-system-audio">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+            </svg>
+            VB-Cable Setup
+          </button>
+          <button class="settings-menu-item" id="menu-audio-help">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Can't hear calls? Setup Guide
+          </button>
+          <div class="settings-divider"></div>
+          <button class="settings-menu-item toggle-item" id="menu-nudge-sound">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <span class="toggle-item-label">Nudge Sound</span>
+            <div class="toggle-switch active" id="nudge-sound-toggle">
+              <div class="toggle-switch-slider"></div>
+            </div>
+          </button>
+          <div class="settings-divider"></div>
+          <button class="settings-menu-item signout" id="menu-signout">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Audio Config Display (clickable to open setup wizard) -->
+      <div class="section audio-config-section">
+        <!-- Your Mic (your voice) -->
+        <div class="audio-config-row clickable" id="mic-config-row" title="Click to change microphone">
+          <div class="audio-config-icon mic">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div class="audio-config-info">
+            <span class="audio-config-label">
+              YOUR MIC
+              <span class="audio-tooltip" title="Your physical microphone - captures YOUR voice">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </span>
+            </span>
+            <span class="audio-config-value" id="mic-display">Not configured</span>
+          </div>
+          <span class="audio-config-change">Change</span>
+        </div>
+        <!-- Hidden select for mic (still needed for getUserMedia) -->
+        <select id="mic-select" class="device-select" style="display: none;">
+          <option value="">Select mic...</option>
+        </select>
+
+        <!-- System Audio (customer's voice) -->
+        <div class="audio-config-row" id="system-audio-row">
+          <div class="audio-config-icon system-audio">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          </div>
+          <div class="audio-config-info">
+            <span class="audio-config-label">
+              SYSTEM AUDIO
+              <span class="audio-tooltip" title="VB-Cable virtual device - captures CUSTOMER'S voice from your dialer">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </span>
+            </span>
+            <span class="audio-config-value system-audio-status" id="system-audio-display">
+              <span class="status-dot"></span>
+              VB-Cable Ready
+            </span>
+          </div>
+          <a href="#" class="audio-help-link" id="audio-help-link" title="Can't hear your calls? Click for help">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Audio Warning Banner (shown when listening) -->
+      <div class="audio-warning" id="audio-warning" style="display: none;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>VB-Cable captures all system audio. Close music/videos for best results.</span>
+        <button class="warning-dismiss" id="dismiss-audio-warning">×</button>
+      </div>
+
+      <!-- Power Toggle -->
+      <div class="section toggle-section">
+        <div class="toggle-info">
+          <span class="toggle-status" id="toggle-status">OFF</span>
+          <span class="toggle-hint" id="toggle-hint">Start listening</span>
+        </div>
+        <button class="power-btn" id="power-toggle">
+          <!-- Simple Power Icon -->
+          <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2v10"/>
+            <path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Listening Indicator -->
+      <div class="listening-indicator" id="listening-animation" style="display: none;">
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <span class="listening-text">Listening</span>
+        <span class="listening-reminder">Turn off between calls</span>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="live">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          </svg>
+          Live
+        </button>
+        <button class="tab-btn" data-tab="stats">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          Stats
+        </button>
+      </div>
+
+      <!-- Live Tab (Nudges) -->
+      <div class="tab-content active" id="tab-live">
+        <!-- Nudge Section -->
+        <div class="section nudge-section" id="nudge-section">
+          <!-- Empty State -->
+          <div class="nudge-empty" id="nudge-empty">
+            <p class="empty-text">Ready to navigate</p>
+            <p class="empty-hint">Turn on to get AI coaching</p>
+          </div>
+
+          <!-- Nudge Card (hidden by default) -->
+          <div class="nudge-card" id="nudge-card" style="display: none;">
+            <div class="nudge-header">
+              <span class="nudge-type" id="nudge-type">TIP</span>
+              <span class="nudge-time" id="nudge-time">Just now</span>
+            </div>
+            <p class="nudge-text" id="nudge-text"></p>
+            <div class="nudge-actions">
+              <button class="nudge-btn vote-btn" id="vote-up-btn" title="Good suggestion">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+              </button>
+              <button class="nudge-btn vote-btn" id="vote-down-btn" title="Bad suggestion">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+                </svg>
+              </button>
+              <div class="nudge-actions-divider"></div>
+              <button class="nudge-btn" id="copy-nudge-btn" title="Copy">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+              <button class="nudge-btn" id="dismiss-nudge-btn" title="Dismiss">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats Bar -->
+        <div class="section stats-section">
+          <div class="stat">
+            <span class="stat-value" id="stat-rebuttals">0</span>
+            <span class="stat-label">Used</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" id="stat-adoption">0%</span>
+            <span class="stat-label">Adoption</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" id="stat-nudges">0</span>
+            <span class="stat-label">Today</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Tab (Gamification) -->
+      <div class="tab-content" id="tab-stats">
+        <!-- Profile Header -->
+        <div class="stats-profile">
+          <div class="profile-info">
+            <span class="profile-name" id="stats-rep-name">Rep Name</span>
+            <span class="profile-company" id="stats-company-name">Company</span>
+          </div>
+          <div class="profile-rank" id="stats-rank-badge">
+            <span class="rank-number">#-</span>
+          </div>
+        </div>
+
+        <!-- Today's Performance -->
+        <div class="stats-hero">
+          <div class="stats-hero-value" id="stats-adoption-big">0%</div>
+          <div class="stats-hero-label">Adoption Rate</div>
+          <div class="stats-hero-subtitle">Today's Performance</div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-card-icon used">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-used-today">0</span>
+              <span class="stats-card-label">Rebuttals Used</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon received">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-received-today">0</span>
+              <span class="stats-card-label">Nudges Received</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon streak">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-streak">0</span>
+              <span class="stats-card-label">Current Streak</span>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <div class="stats-card-icon best">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div class="stats-card-info">
+              <span class="stats-card-value" id="stats-best-streak">0</span>
+              <span class="stats-card-label">Best Streak</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="leaderboard-section">
+          <div class="leaderboard-header">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 21h8m-4-4v4m-5-8l5-10 5 10M4 13h16"/>
+            </svg>
+            <span>Team Ranking</span>
+            <div class="leaderboard-column-labels">
+              <span class="col-label">Rate</span>
+              <span class="col-label">Used</span>
+            </div>
+          </div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <div class="leaderboard-empty">Loading rankings...</div>
+          </div>
+        </div>
+
+        <!-- Motivation Message -->
+        <div class="stats-motivation" id="stats-motivation">
+          <span class="motivation-emoji"></span>
+          <span class="motivation-text">Start using rebuttals to build your streak!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer" id="connection-status">
+      <span class="footer-dot"></span>
+      <span class="footer-text" id="status-text">Connecting...</span>
+    </div>
+
+    <!-- Resize handles are now created dynamically by JavaScript (setupGlobalResizeHandles) -->
+    <!-- They are appended to body so they work on ALL screens (login, setup, main widget) -->
+  </div>
+
+  <!-- Nudge Popup Container (for mini mode) -->
+  <div id="nudge-popup-container"></div>
+
+  <!-- Call App Picker Modal -->
+  <div class="picker-overlay" id="call-app-picker" style="display: none;">
+    <div class="picker-modal">
+      <div class="picker-header">
+        <h3 class="picker-title">Select Your Call App</h3>
+        <p class="picker-subtitle">Choose the app you're using for this call</p>
+      </div>
+
+      <div class="picker-content">
+        <!-- Detected Call Apps -->
+        <div class="picker-section" id="picker-call-apps">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Detected Call Apps
+          </div>
+          <div class="picker-grid" id="picker-call-apps-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Browser Tabs & Other Apps -->
+        <div class="picker-section" id="picker-other-windows">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+            </svg>
+            Browser Tabs & Other Apps
+          </div>
+          <div class="picker-grid" id="picker-other-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- System Audio Option -->
+        <div class="picker-section">
+          <div class="picker-section-label">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            Capture All Audio
+          </div>
+          <div class="picker-grid">
+            <div class="picker-item" data-source-id="system-audio" data-source-name="All System Audio">
+              <div class="picker-item-icon system">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="4" y="4" width="16" height="12" rx="2"/>
+                  <path d="M8 20h8"/>
+                  <path d="M12 16v4"/>
+                </svg>
+              </div>
+              <span class="picker-item-name">All System Audio</span>
+              <span class="picker-item-hint">Captures audio from all apps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="picker-footer">
+        <button class="btn btn-secondary" id="picker-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

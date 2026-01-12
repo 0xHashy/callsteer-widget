@@ -104,6 +104,58 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 3000;
 
+// Transcript buffering - accumulate fragments before sending
+const transcriptBuffers = {
+  rep: '',
+  customer: ''
+};
+let transcriptBufferTimeouts = {
+  rep: null,
+  customer: null
+};
+const BUFFER_DELAY_MS = 800;  // Reduced from 1500ms for faster nudges
+const MIN_TRANSCRIPT_LENGTH = 15; // Minimum chars to send
+
+/**
+ * Buffer and send transcript - accumulates FINAL transcript fragments and sends complete thoughts
+ * NOTE: This function should ONLY be called with final transcripts, not interim
+ */
+function bufferAndSendTranscript(transcript, speaker) {
+  // Add final transcript to buffer (caller must ensure this is a final transcript)
+  transcriptBuffers[speaker] += ' ' + transcript;
+  transcriptBuffers[speaker] = transcriptBuffers[speaker].trim();
+
+  // Clear existing timeout for this speaker
+  if (transcriptBufferTimeouts[speaker]) {
+    clearTimeout(transcriptBufferTimeouts[speaker]);
+    transcriptBufferTimeouts[speaker] = null;
+  }
+
+  // Start a timer to send the complete buffer
+  transcriptBufferTimeouts[speaker] = setTimeout(() => {
+    const bufferedText = transcriptBuffers[speaker];
+
+    // Minimum length check - don't send tiny fragments
+    if (bufferedText.length >= MIN_TRANSCRIPT_LENGTH) {
+      console.log(`[Transcript] Sending buffered ${speaker}: "${bufferedText}"`);
+
+      // Check for rebuttal match when rep speaks
+      if (speaker === 'rep') {
+        checkRebuttalMatch(bufferedText);
+      }
+
+      // Send to backend for analysis
+      sendTranscriptToBackend(bufferedText, speaker);
+    } else {
+      console.log(`[Transcript] Skipping short ${speaker} transcript (${bufferedText.length} chars): "${bufferedText}"`);
+    }
+
+    // Clear buffer after sending
+    transcriptBuffers[speaker] = '';
+    transcriptBufferTimeouts[speaker] = null;
+  }, BUFFER_DELAY_MS);
+}
+
 // ==================== THEME MANAGEMENT ====================
 
 /**
@@ -640,6 +692,12 @@ function setupWindowControls() {
   });
   document.getElementById('minimize-btn')?.addEventListener('click', () => {
     window.electronAPI?.minimizeWindow();
+  });
+
+  // Dashboard button - opens dashboard window
+  document.getElementById('dashboard-btn')?.addEventListener('click', () => {
+    console.log('[Widget] Opening dashboard...');
+    window.electronAPI?.openDashboard();
   });
 
   // Settings button - toggles dropdown menu
@@ -3329,10 +3387,9 @@ function connectDeepgramMic() {
 
           console.log(`[Mic/REP] ${isFinal ? 'FINAL' : 'interim'}: ${transcript}`);
 
-          // Check if rep used the suggested rebuttal (fuzzy match)
+          // Buffer and send transcript (accumulates fragments before sending)
           if (isFinal && transcript.length > 5) {
-            checkRebuttalMatch(transcript);
-            sendTranscriptToBackend(transcript, 'rep');
+            bufferAndSendTranscript(transcript, 'rep');
           }
         }
       }
@@ -4654,7 +4711,8 @@ function connectDeepgramSystem() {
           if (isFinal && transcript.length > 5) {
             // Store for vote context
             lastCustomerTranscript = transcript;
-            sendTranscriptToBackend(transcript, 'customer');
+            // Buffer and send transcript (accumulates fragments before sending)
+            bufferAndSendTranscript(transcript, 'customer');
           }
         }
       }

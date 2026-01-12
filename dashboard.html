@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CallSteer Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="sidebar-brand">
+        <svg class="logo-icon" viewBox="0 0 48 48" width="32" height="32">
+          <defs>
+            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00C8D4"/>
+              <stop offset="100%" stop-color="#00E0E6"/>
+            </linearGradient>
+          </defs>
+          <path d="M24 4C16.3 4 10 10.3 10 18c0 10 14 26 14 26s14-16 14-26c0-7.7-6.3-14-14-14z"
+                fill="none" stroke="url(#logoGrad)" stroke-width="2.5"/>
+          <circle cx="24" cy="18" r="5" fill="url(#logoGrad)"/>
+        </svg>
+        <span class="brand-text">CallSteer</span>
+      </div>
+
+      <ul class="nav-tabs">
+        <li class="nav-tab active" data-tab="home">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <span>Home</span>
+        </li>
+        <li class="nav-tab" data-tab="performance">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span>Performance</span>
+        </li>
+        <li class="nav-tab" data-tab="leaderboard">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="8" r="6"/>
+            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+          </svg>
+          <span>Leaderboard</span>
+        </li>
+        <li class="nav-tab" data-tab="tutorial">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Tutorial</span>
+        </li>
+        <li class="nav-tab" data-tab="settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Settings</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span class="user-name" id="sidebar-user-name">Rep Name</span>
+          <span class="company-name" id="sidebar-company-name">Company</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Home Tab -->
+      <div class="tab-content active" id="tab-home">
+        <div class="content-header">
+          <h1>Welcome back, <span id="home-user-name">Rep</span>!</h1>
+          <p class="subtitle">Ready to close some deals?</p>
+        </div>
+
+        <!-- Launch Widget CTA -->
+        <div class="launch-widget-section">
+          <button class="btn-launch-widget" id="btn-launch-widget">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Launch Widget
+          </button>
+          <p class="launch-hint">Opens the floating coaching widget for your calls</p>
+        </div>
+
+        <!-- Today's Stats -->
+        <div class="stats-section">
+          <h2>Today's Performance</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="stat-today-nudges">0</div>
+              <div class="stat-label">Nudges</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-today-used">0</div>
+              <div class="stat-label">Used</div>
+            </div>
+            <div class="stat-card highlight">
+              <div class="stat-value" id="stat-today-adoption">0%</div>
+              <div class="stat-label">Adoption</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-today-streak">0</div>
+              <div class="stat-label">Streak</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rank Banner -->
+        <div class="rank-banner" id="rank-banner">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="8" r="6"/>
+            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+          </svg>
+          <span>You're <strong>#<span id="home-rank">-</span></strong> on the team today!</span>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="recent-activity-section">
+          <h2>Recent Activity</h2>
+          <div class="activity-list" id="activity-list">
+            <div class="activity-empty">No activity yet today. Launch the widget to start!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Tab -->
+      <div class="tab-content" id="tab-performance">
+        <div class="content-header">
+          <h1>Performance</h1>
+          <p class="subtitle">Your stats and trends</p>
+        </div>
+
+        <!-- Time Period Filter -->
+        <div class="period-filter">
+          <button class="period-btn active" data-period="today">Today</button>
+          <button class="period-btn" data-period="week">This Week</button>
+          <button class="period-btn" data-period="month">This Month</button>
+          <button class="period-btn" data-period="all">All Time</button>
+        </div>
+
+        <!-- Performance Stats Grid -->
+        <div class="perf-stats-section">
+          <div class="perf-stats-grid">
+            <div class="perf-stat-card">
+              <div class="perf-stat-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div class="perf-stat-value" id="perf-total-nudges">0</div>
+              <div class="perf-stat-label">Nudges Shown</div>
+            </div>
+            <div class="perf-stat-card">
+              <div class="perf-stat-icon success">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div class="perf-stat-value" id="perf-nudges-used">0</div>
+              <div class="perf-stat-label">Nudges Used</div>
+            </div>
+            <div class="perf-stat-card highlight">
+              <div class="perf-stat-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+              </div>
+              <div class="perf-stat-value" id="perf-adoption-rate">0%</div>
+              <div class="perf-stat-label">Adoption Rate</div>
+            </div>
+            <div class="perf-stat-card">
+              <div class="perf-stat-icon warning">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+              </div>
+              <div class="perf-stat-value" id="perf-current-streak">0</div>
+              <div class="perf-stat-label">Day Streak</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="category-section">
+          <h2>Category Breakdown</h2>
+          <div class="category-grid" id="category-grid">
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Price</span>
+                <span class="category-count" id="cat-price">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-price-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Timing</span>
+                <span class="category-count" id="cat-timing">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-timing-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Authority</span>
+                <span class="category-count" id="cat-authority">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-authority-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Competition</span>
+                <span class="category-count" id="cat-competition">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-competition-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Trust</span>
+                <span class="category-count" id="cat-trust">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-trust-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="category-card">
+              <div class="category-header">
+                <span class="category-name">Interest</span>
+                <span class="category-count" id="cat-interest">0</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-fill" id="cat-interest-bar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Insights Section -->
+        <div class="insights-section">
+          <h2>Insights</h2>
+          <div class="insights-list" id="insights-list">
+            <div class="insight-card">
+              <div class="insight-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <div class="insight-text">Use more nudges to unlock personalized insights!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard Tab -->
+      <div class="tab-content" id="tab-leaderboard">
+        <div class="content-header">
+          <h1>Leaderboard</h1>
+          <p class="subtitle">Team rankings</p>
+        </div>
+
+        <!-- Leaderboard Filters -->
+        <div class="leaderboard-filters">
+          <div class="filter-group">
+            <label>Time Period</label>
+            <select id="lb-period-filter" class="filter-select">
+              <option value="today">Today</option>
+              <option value="week" selected>This Week</option>
+              <option value="month">This Month</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Metric</label>
+            <select id="lb-metric-filter" class="filter-select">
+              <option value="adoption" selected>Adoption Rate</option>
+              <option value="nudges_used">Nudges Used</option>
+              <option value="streak">Streak</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Your Position Banner -->
+        <div class="your-position-banner" id="your-position-banner">
+          <div class="position-medal">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="6"/>
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+            </svg>
+          </div>
+          <div class="position-info">
+            <span class="position-label">Your Position</span>
+            <span class="position-rank" id="your-lb-rank">#-</span>
+          </div>
+          <div class="position-stat">
+            <span class="position-stat-value" id="your-lb-value">0%</span>
+            <span class="position-stat-label">Adoption</span>
+          </div>
+        </div>
+
+        <!-- Leaderboard Table -->
+        <div class="leaderboard-table-wrapper">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th class="col-rank">Rank</th>
+                <th class="col-name">Rep</th>
+                <th class="col-nudges">Nudges</th>
+                <th class="col-used">Used</th>
+                <th class="col-adoption">Adoption</th>
+                <th class="col-streak">Streak</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr class="loading-row">
+                <td colspan="6">Loading leaderboard...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tutorial Tab -->
+      <div class="tab-content" id="tab-tutorial">
+        <div class="content-header">
+          <h1>Tutorial</h1>
+          <p class="subtitle">Learn how to use CallSteer</p>
+        </div>
+
+        <!-- Getting Started Section -->
+        <div class="tutorial-section">
+          <h2>Getting Started</h2>
+          <div class="tutorial-steps">
+            <div class="tutorial-step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h3>Launch the Widget</h3>
+                <p>Click "Launch Widget" from the Home tab to open the floating coaching assistant.</p>
+              </div>
+            </div>
+            <div class="tutorial-step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h3>Start Your Call</h3>
+                <p>Begin your sales call. CallSteer will listen and detect objections in real-time.</p>
+              </div>
+            </div>
+            <div class="tutorial-step">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h3>Use the Nudges</h3>
+                <p>When an objection is detected, you'll see coaching nudges. Click to copy and use them!</p>
+              </div>
+            </div>
+            <div class="tutorial-step">
+              <div class="step-number">4</div>
+              <div class="step-content">
+                <h3>Track Your Progress</h3>
+                <p>Check the Performance tab to see your stats and improve over time.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VB-Cable Setup Section -->
+        <div class="tutorial-section">
+          <h2>Audio Setup (VB-Cable)</h2>
+          <p class="section-desc">For best results, set up VB-Cable to capture system audio:</p>
+          <div class="setup-steps">
+            <div class="setup-step">
+              <div class="setup-step-header">
+                <span class="setup-step-num">Step 1</span>
+                <span class="setup-step-title">Download VB-Cable</span>
+              </div>
+              <p>Visit <a href="#" id="vb-cable-link" class="external-link">vb-audio.com/Cable</a> and download the free VB-Cable driver.</p>
+            </div>
+            <div class="setup-step">
+              <div class="setup-step-header">
+                <span class="setup-step-num">Step 2</span>
+                <span class="setup-step-title">Install VB-Cable</span>
+              </div>
+              <p>Run the installer as Administrator. Restart your computer when prompted.</p>
+            </div>
+            <div class="setup-step">
+              <div class="setup-step-header">
+                <span class="setup-step-num">Step 3</span>
+                <span class="setup-step-title">Configure Sound Settings</span>
+              </div>
+              <p>Open Sound Settings and set VB-Cable as your default playback device, or use "Listen" feature.</p>
+              <button class="btn-secondary" id="btn-open-sound-settings">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+                Open Sound Settings
+              </button>
+            </div>
+            <div class="setup-step">
+              <div class="setup-step-header">
+                <span class="setup-step-num">Step 4</span>
+                <span class="setup-step-title">Select in Widget</span>
+              </div>
+              <p>In the CallSteer widget, select "VB-Cable Output" as your customer audio source.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="tutorial-section">
+          <h2>FAQ</h2>
+          <div class="faq-list">
+            <div class="faq-item">
+              <div class="faq-question" data-faq="1">
+                <span>Why can't I hear customer audio?</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+              <div class="faq-answer" id="faq-1">
+                <p>Make sure you've set up VB-Cable correctly and selected the right audio source in the widget. Check that your call app is using VB-Cable for output.</p>
+              </div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-question" data-faq="2">
+                <span>How accurate is objection detection?</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+              <div class="faq-answer" id="faq-2">
+                <p>CallSteer uses advanced speech recognition and NLP to detect common sales objections. Accuracy improves with clear audio and typical objection patterns.</p>
+              </div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-question" data-faq="3">
+                <span>Is my call data stored?</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+              <div class="faq-answer" id="faq-3">
+                <p>Audio is processed in real-time and not stored. Only anonymized usage statistics are saved to track your performance metrics.</p>
+              </div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-question" data-faq="4">
+                <span>Can I customize the nudges?</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+              <div class="faq-answer" id="faq-4">
+                <p>Custom nudges and playbook integration is coming soon! For now, nudges are based on proven sales methodologies.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-content" id="tab-settings">
+        <div class="content-header">
+          <h1>Settings</h1>
+          <p class="subtitle">Configure your preferences</p>
+        </div>
+
+        <!-- Account Section -->
+        <div class="settings-section">
+          <h2>Account</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="setting-name">Name</span>
+                <span class="setting-desc">Your display name</span>
+              </div>
+              <div class="setting-value" id="settings-name">-</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="setting-name">Company</span>
+                <span class="setting-desc">Your organization</span>
+              </div>
+              <div class="setting-value" id="settings-company">-</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="setting-name">Client Code</span>
+                <span class="setting-desc">Your unique identifier</span>
+              </div>
+              <div class="setting-value code" id="settings-client-code">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preferences Section -->
+        <div class="settings-section">
+          <h2>Preferences</h2>
+          <div class="settings-card">
+            <div class="setting-row clickable" id="setting-notifications">
+              <div class="setting-label">
+                <span class="setting-name">Sound Notifications</span>
+                <span class="setting-desc">Play sound when nudge appears</span>
+              </div>
+              <div class="setting-toggle">
+                <input type="checkbox" id="toggle-notifications" checked>
+                <label for="toggle-notifications" class="toggle-label"></label>
+              </div>
+            </div>
+            <div class="setting-row clickable" id="setting-auto-copy">
+              <div class="setting-label">
+                <span class="setting-name">Auto-Copy Nudges</span>
+                <span class="setting-desc">Automatically copy nudge to clipboard on click</span>
+              </div>
+              <div class="setting-toggle">
+                <input type="checkbox" id="toggle-auto-copy" checked>
+                <label for="toggle-auto-copy" class="toggle-label"></label>
+              </div>
+            </div>
+            <div class="setting-row clickable" id="setting-always-on-top">
+              <div class="setting-label">
+                <span class="setting-name">Widget Always On Top</span>
+                <span class="setting-desc">Keep widget above other windows</span>
+              </div>
+              <div class="setting-toggle">
+                <input type="checkbox" id="toggle-always-on-top" checked>
+                <label for="toggle-always-on-top" class="toggle-label"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- App Info Section -->
+        <div class="settings-section">
+          <h2>About</h2>
+          <div class="settings-card">
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="setting-name">Version</span>
+                <span class="setting-desc">Current app version</span>
+              </div>
+              <div class="setting-value" id="settings-version">-</div>
+            </div>
+            <div class="setting-row clickable" id="setting-check-updates">
+              <div class="setting-label">
+                <span class="setting-name">Check for Updates</span>
+                <span class="setting-desc">See if a newer version is available</span>
+              </div>
+              <div class="setting-action">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logout Section -->
+        <div class="settings-section">
+          <button class="btn-logout" id="btn-logout">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
