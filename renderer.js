@@ -3100,6 +3100,7 @@ function onRebuttalUsed() {
 
 /**
  * Sync adoption to backend so leaderboard stats are accurate
+ * For custom playbook nudges, also updates the CustomNudgeDB times_adopted counter
  */
 async function syncAdoptionToBackend() {
   if (!currentNudge?.nudge_id) {
@@ -3108,12 +3109,21 @@ async function syncAdoptionToBackend() {
   }
 
   const nudgeId = currentNudge.nudge_id;
-  console.log('[Adoption] Syncing to backend:', nudgeId);
+  const isCustom = nudgeId.startsWith('custom_') || currentNudge.source === 'custom_playbook';
+
+  console.log('[Adoption] Syncing to backend:', nudgeId, isCustom ? '(custom playbook)' : '');
 
   try {
+    // Build request body - include custom_nudge_id if this is a playbook nudge
+    const body = {};
+    if (isCustom && currentNudge.custom_nudge_id) {
+      body.custom_nudge_id = currentNudge.custom_nudge_id;
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/nudges/${encodeURIComponent(nudgeId)}/adopt`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -3123,6 +3133,11 @@ async function syncAdoptionToBackend() {
 
     const data = await response.json();
     console.log('[Adoption] Backend sync success:', data.status);
+
+    // Log playbook-specific adoption details
+    if (data.source === 'custom_playbook') {
+      console.log(`[Adoption] Playbook nudge ${data.custom_nudge_id}: ${data.times_adopted} adoptions, ${data.effectiveness}% effectiveness`);
+    }
 
     // Invalidate leaderboard cache so next fetch gets fresh data
     lastLeaderboardFetch = 0;
