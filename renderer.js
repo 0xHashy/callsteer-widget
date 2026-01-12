@@ -1617,6 +1617,23 @@ function setupToggle() {
   const powerToggle = document.getElementById('power-toggle');
   console.log('[Setup] Power toggle element:', powerToggle);
   powerToggle?.addEventListener('click', toggleListening);
+
+  // Double-click on power button exits compact mode (fallback escape hatch)
+  powerToggle?.addEventListener('dblclick', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isCompact = document.body.classList.contains('compact-mode');
+    if (isCompact) {
+      console.log('[Compact Mode] Double-click detected - exiting compact mode');
+      document.body.classList.remove('compact-mode');
+      const toggle = document.getElementById('compact-mode-toggle');
+      if (toggle) toggle.classList.remove('active');
+      if (window.electronAPI?.setCompactMode) {
+        await window.electronAPI.setCompactMode(false);
+      }
+    }
+  });
+
   console.log('[Setup] Toggle listener added');
 }
 

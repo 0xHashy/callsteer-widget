@@ -3256,9 +3256,40 @@ body.compact-mode .widget {
   overflow: hidden;
 }
 
-/* Hide EVERYTHING except power toggle and nudge section */
+/* Keep header visible in compact mode but minimal - only settings gear */
 body.compact-mode .header {
+  display: flex !important;
+  padding: 4px 8px;
+  min-height: auto;
+  height: auto;
+  background: transparent;
+  border-bottom: none;
+}
+
+/* Hide most header elements in compact mode */
+body.compact-mode .header .header-logo,
+body.compact-mode .header .header-title,
+body.compact-mode .header .theme-toggle-btn,
+body.compact-mode .header .header-status {
   display: none !important;
+}
+
+/* Keep settings menu container visible and position to right */
+body.compact-mode .header .settings-menu-container {
+  display: flex !important;
+  margin-left: auto;
+}
+
+/* Make settings button smaller in compact mode */
+body.compact-mode .header .header-icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+}
+
+body.compact-mode .header .header-icon-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 body.compact-mode .audio-config-section {
