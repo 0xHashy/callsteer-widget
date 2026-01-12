@@ -752,43 +752,15 @@ function setupWindowControls() {
     localStorage.setItem('callsteer_audio_warning_dismissed', 'true');
   });
 
-  // Compact Mode toggle
+  // Compact Mode toggle from settings menu
   document.getElementById('menu-compact-mode')?.addEventListener('click', async (e) => {
     e.stopPropagation(); // Don't close dropdown
-    const toggle = document.getElementById('compact-mode-toggle');
-    const isCurrentlyCompact = toggle?.classList.contains('active');
-    const newCompactState = !isCurrentlyCompact;
+    await toggleCompactMode();
+  });
 
-    // Update toggle UI
-    if (toggle) {
-      toggle.classList.toggle('active', newCompactState);
-    }
-
-    // Update body class
-    document.body.classList.toggle('compact-mode', newCompactState);
-
-    // Clear any inline styles so CSS rules take over properly
-    const mainWidget = document.getElementById('main-widget');
-    if (mainWidget) {
-      const header = mainWidget.querySelector('.header');
-      const content = mainWidget.querySelector('.content');
-      const footer = mainWidget.querySelector('.footer');
-      const tabNav = mainWidget.querySelector('.tab-nav');
-      const audioConfig = mainWidget.querySelector('.audio-config-section');
-      const toggleSection = mainWidget.querySelector('.toggle-section');
-
-      // Remove inline display styles - let CSS handle it
-      [header, content, footer, tabNav, audioConfig, toggleSection].forEach(el => {
-        if (el) el.style.display = '';
-      });
-    }
-
-    // Save preference via IPC
-    if (window.electronAPI?.setCompactMode) {
-      await window.electronAPI.setCompactMode(newCompactState);
-    }
-
-    console.log('[Settings] Compact mode:', newCompactState ? 'ON' : 'OFF');
+  // Expand button (visible only in compact mode) - exits compact mode
+  document.getElementById('expand-btn')?.addEventListener('click', async () => {
+    await setCompactMode(false);
   });
 
   // Nudge Sound toggle
@@ -978,12 +950,16 @@ async function loadCompactModePreference() {
       toggle.classList.toggle('active', isCompact);
     }
 
-    // Update body class - ONLY add if explicitly true, always remove if false
+    // Update body class and resize window
     if (isCompact) {
       document.body.classList.add('compact-mode');
+      if (window.electronAPI?.resizeWindow) {
+        await window.electronAPI.resizeWindow({ width: 320, height: 220 });
+      }
       console.log('[Init] Compact mode ENABLED');
     } else {
       document.body.classList.remove('compact-mode');
+      // Don't resize on load for full mode - let main.js handle initial size
       console.log('[Init] Full mode ENABLED (compact mode removed)');
     }
   } catch (e) {
@@ -991,6 +967,60 @@ async function loadCompactModePreference() {
     // On error, ensure full mode
     document.body.classList.remove('compact-mode');
   }
+}
+
+/**
+ * Toggle compact mode on/off
+ */
+async function toggleCompactMode() {
+  const isCurrentlyCompact = document.body.classList.contains('compact-mode');
+  await setCompactMode(!isCurrentlyCompact);
+}
+
+/**
+ * Set compact mode to a specific state
+ * @param {boolean} compact - true for compact mode, false for full mode
+ */
+async function setCompactMode(compact) {
+  console.log('[Compact Mode] Setting to:', compact ? 'COMPACT' : 'FULL');
+
+  // Update body class
+  if (compact) {
+    document.body.classList.add('compact-mode');
+  } else {
+    document.body.classList.remove('compact-mode');
+  }
+
+  // Update toggle UI in settings menu
+  const toggle = document.getElementById('compact-mode-toggle');
+  if (toggle) {
+    toggle.classList.toggle('active', compact);
+  }
+
+  // Clear any inline display styles so CSS rules take over
+  const mainWidget = document.getElementById('main-widget');
+  if (mainWidget) {
+    const elements = mainWidget.querySelectorAll('.header, .content, .footer, .tab-nav, .audio-config-section, .toggle-section');
+    elements.forEach(el => {
+      if (el) el.style.display = '';
+    });
+  }
+
+  // Resize window
+  if (window.electronAPI?.resizeWindow) {
+    if (compact) {
+      await window.electronAPI.resizeWindow({ width: 320, height: 220 });
+    } else {
+      await window.electronAPI.resizeWindow({ width: 380, height: 650 });
+    }
+  }
+
+  // Save preference
+  if (window.electronAPI?.setCompactMode) {
+    await window.electronAPI.setCompactMode(compact);
+  }
+
+  console.log('[Compact Mode]', compact ? 'Compact mode ENABLED' : 'Full mode RESTORED');
 }
 
 /**
@@ -1622,15 +1652,9 @@ function setupToggle() {
   powerToggle?.addEventListener('dblclick', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const isCompact = document.body.classList.contains('compact-mode');
-    if (isCompact) {
+    if (document.body.classList.contains('compact-mode')) {
       console.log('[Compact Mode] Double-click detected - exiting compact mode');
-      document.body.classList.remove('compact-mode');
-      const toggle = document.getElementById('compact-mode-toggle');
-      if (toggle) toggle.classList.remove('active');
-      if (window.electronAPI?.setCompactMode) {
-        await window.electronAPI.setCompactMode(false);
-      }
+      await setCompactMode(false);
     }
   });
 
