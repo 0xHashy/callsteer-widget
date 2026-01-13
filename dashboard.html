@@ -30,7 +30,7 @@
       <form class="login-form" id="dashboard-login-form">
         <div class="login-input-group">
           <label for="dashboard-client-code">Company Code</label>
-          <input type="text" id="dashboard-client-code" placeholder="6-character code" maxlength="6" style="text-transform: uppercase;" required>
+          <input type="text" id="dashboard-client-code" placeholder="6-character code" maxlength="6" required>
         </div>
         <div class="login-input-group">
           <label for="dashboard-rep-id">Rep ID</label>
@@ -53,6 +53,12 @@
           </div>
         </div>
         <p class="login-hint" style="font-size: 11px; color: rgba(255,255,255,0.5); margin: -8px 0 12px; text-align: center;">Get your Rep ID and PIN from your manager</p>
+        <div class="caps-lock-warning" id="dashboard-caps-lock-warning" style="display: none;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          </svg>
+          <span>Caps Lock is on</span>
+        </div>
         <div class="login-error" id="dashboard-login-error"></div>
         <button type="submit" class="btn-login" id="dashboard-login-btn">Sign In</button>
       </form>

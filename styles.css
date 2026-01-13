@@ -1809,6 +1809,26 @@ button, select {
   min-height: 14px;
 }
 
+.caps-lock-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.caps-lock-warning svg {
+  stroke: #f59e0b;
+  flex-shrink: 0;
+}
+
 .btn {
   padding: 12px 20px;
   border: 1px solid var(--glass-border);

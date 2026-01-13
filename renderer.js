@@ -1149,6 +1149,26 @@ function setupLoginHandlers() {
     window.electronAPI?.openExternal('https://callsteer.com');
   });
 
+  // Caps lock detection for login fields
+  const capsLockWarning = document.getElementById('caps-lock-warning');
+  const loginInputs = [codeInput, repIdInput, pinInput];
+
+  loginInputs.forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if (e.getModifierState && capsLockWarning) {
+        const isCapsOn = e.getModifierState('CapsLock');
+        capsLockWarning.style.display = isCapsOn ? 'flex' : 'none';
+      }
+    });
+    input.addEventListener('keyup', (e) => {
+      if (e.getModifierState && capsLockWarning) {
+        const isCapsOn = e.getModifierState('CapsLock');
+        capsLockWarning.style.display = isCapsOn ? 'flex' : 'none';
+      }
+    });
+  });
+
   // Pre-fill saved values for convenience
   const savedCode = localStorage.getItem('callsteer_client_code');
   const savedRepId = localStorage.getItem('callsteer_rep_id');

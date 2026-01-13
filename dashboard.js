@@ -93,6 +93,29 @@ function setupLoginForm() {
   if (form) {
     form.addEventListener('submit', handleDashboardLogin);
   }
+
+  // Caps lock detection for login fields
+  const capsLockWarning = document.getElementById('dashboard-caps-lock-warning');
+  const codeInput = document.getElementById('dashboard-client-code');
+  const repIdInput = document.getElementById('dashboard-rep-id');
+  const pinInput = document.getElementById('dashboard-pin');
+  const loginInputs = [codeInput, repIdInput, pinInput];
+
+  loginInputs.forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if (e.getModifierState && capsLockWarning) {
+        const isCapsOn = e.getModifierState('CapsLock');
+        capsLockWarning.style.display = isCapsOn ? 'flex' : 'none';
+      }
+    });
+    input.addEventListener('keyup', (e) => {
+      if (e.getModifierState && capsLockWarning) {
+        const isCapsOn = e.getModifierState('CapsLock');
+        capsLockWarning.style.display = isCapsOn ? 'flex' : 'none';
+      }
+    });
+  });
 }
 
 async function handleDashboardLogin(e) {
