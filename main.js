@@ -599,6 +599,10 @@ function createDashboardWindow() {
     }
   });
 
+  // Load the local dashboard (has Electron-specific features like audio setup, widget launcher)
+  // Note: Desktop and web dashboards are intentionally different:
+  // - Desktop: VB-Audio setup, mic selection, widget launcher, Electron settings
+  // - Web: Browser-based admin without hardware configuration
   dashboardWindow.loadFile('dashboard.html');
 
   // DevTools - F12 or Ctrl+Shift+I to toggle
@@ -724,6 +728,22 @@ ipcMain.handle('open-dashboard', () => {
 ipcMain.handle('focus-dashboard', () => {
   if (dashboardWindow) {
     dashboardWindow.focus();
+  }
+  return true;
+});
+
+// Logout widget when dashboard logs out (sync logout state)
+ipcMain.handle('logout-widget', () => {
+  console.log('[Main] Dashboard requested widget logout');
+  // Send logout to widget window (widget.html)
+  if (widgetWindow) {
+    widgetWindow.webContents.send('logout-request');
+    console.log('[Main] Sent logout-request to widget window');
+  }
+  // Also send to main window (index.html) if it exists
+  if (mainWindow) {
+    mainWindow.webContents.send('logout-request');
+    console.log('[Main] Sent logout-request to main window');
   }
   return true;
 });

@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Logout event listener
   onLogoutRequest: (callback) => ipcRenderer.on('logout-request', () => callback()),
+  // Trigger logout on widget (called from dashboard)
+  logoutWidget: () => ipcRenderer.invoke('logout-widget'),
 
   // Auto-update
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

@@ -2,6 +2,23 @@
 
 const API_BASE_URL = 'https://callsteer-backend-production.up.railway.app';
 
+// Password visibility toggle
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const eyeIcon = btn.querySelector('.eye-icon');
+  const eyeOffIcon = btn.querySelector('.eye-off-icon');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    eyeIcon.style.display = 'none';
+    eyeOffIcon.style.display = 'block';
+  } else {
+    input.type = 'password';
+    eyeIcon.style.display = 'block';
+    eyeOffIcon.style.display = 'none';
+  }
+}
+
 let clientCode = null;
 let clientInfo = null;
 let repId = null;
@@ -81,16 +98,32 @@ function setupLoginForm() {
 async function handleDashboardLogin(e) {
   e.preventDefault();
 
-  const nameInput = document.getElementById('dashboard-rep-name');
   const codeInput = document.getElementById('dashboard-client-code');
+  const repIdInput = document.getElementById('dashboard-rep-id');
+  const pinInput = document.getElementById('dashboard-pin');
   const errorEl = document.getElementById('dashboard-login-error');
   const submitBtn = document.getElementById('dashboard-login-btn');
 
-  const name = nameInput.value.trim();
   const code = codeInput.value.trim().toUpperCase();
+  const repIdValue = repIdInput.value.trim();
+  const pin = pinInput.value.trim();
 
-  if (!name || !code) {
-    errorEl.textContent = 'Please enter your name and company code';
+  // Validate inputs
+  if (!code || code.length !== 6) {
+    errorEl.textContent = 'Enter a 6-character company code';
+    codeInput.focus();
+    return;
+  }
+
+  if (!repIdValue) {
+    errorEl.textContent = 'Enter your Rep ID';
+    repIdInput.focus();
+    return;
+  }
+
+  if (!pin || pin.length !== 6) {
+    errorEl.textContent = 'Enter your 6-digit PIN';
+    pinInput.focus();
     return;
   }
 
@@ -100,43 +133,57 @@ async function handleDashboardLogin(e) {
   errorEl.textContent = '';
 
   try {
-    // Validate client code with backend
-    console.log('[Dashboard] Validating client code:', code);
+    // Use the rep login API with PIN authentication
+    console.log('[Dashboard] Authenticating:', code, repIdValue);
     let response;
     try {
-      response = await fetch(`${API_BASE_URL}/api/clients/${code}`);
+      response = await fetch(`${API_BASE_URL}/api/rep/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_code: code,
+          rep_id: repIdValue,
+          pin: pin
+        })
+      });
     } catch (fetchError) {
       console.error('[Dashboard] Fetch failed:', fetchError);
       throw new Error('Could not connect to server. Check your internet connection.');
     }
 
+    const data = await response.json();
+
     if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('Invalid company code');
-      } else {
-        console.error('[Dashboard] HTTP error:', response.status, response.statusText);
-        throw new Error(`Server error (${response.status})`);
-      }
+      throw new Error(data.detail || 'Invalid credentials');
     }
 
-    const data = await response.json();
-    console.log('[Dashboard] Got client data:', data);
+    console.log('[Dashboard] Login successful:', data);
+
+    // Clear PIN from memory (security)
+    pinInput.value = '';
 
     // Save credentials
-    clientCode = code;
+    clientCode = data.client_code;
+    repId = data.rep_id;
     clientInfo = {
-      client_code: code,
+      client_code: data.client_code,
       company_name: data.company_name,
-      has_dna: data.has_dna,
-      rep_name: name
+      rep_name: data.name,
+      rep_id: data.rep_id,
+      role: data.role
     };
 
+    // Save to localStorage for convenience
+    localStorage.setItem('callsteer_client_code', data.client_code);
+    localStorage.setItem('callsteer_rep_id', data.rep_id);
+    localStorage.setItem('callsteer_rep_name', data.name);
+
     if (window.electronAPI) {
-      await window.electronAPI.saveClientCode(code);
+      await window.electronAPI.saveClientCode(data.client_code);
       await window.electronAPI.saveClientInfo(clientInfo);
     }
 
-    console.log('[Dashboard] Login successful:', name, code);
+    console.log('[Dashboard] Credentials saved:', data.name, data.client_code);
 
     // Show dashboard
     showDashboard();
@@ -774,6 +821,10 @@ async function handleLogout() {
     try {
       await window.electronAPI.clearClientCode();
       console.log('[Dashboard] Credentials cleared');
+
+      // Also logout the widget window if it's open
+      await window.electronAPI.logoutWidget();
+      console.log('[Dashboard] Widget logout triggered');
     } catch (e) {
       console.error('[Dashboard] Error clearing client code:', e);
     }
@@ -783,12 +834,10 @@ async function handleLogout() {
   clientCode = null;
   clientInfo = null;
 
-  // Clear login form
-  const nameInput = document.getElementById('dashboard-rep-name');
-  const codeInput = document.getElementById('dashboard-client-code');
+  // Clear login form (keep code and rep ID, just clear PIN for security)
+  const pinInput = document.getElementById('dashboard-pin');
   const errorEl = document.getElementById('dashboard-login-error');
-  if (nameInput) nameInput.value = '';
-  if (codeInput) codeInput.value = '';
+  if (pinInput) pinInput.value = '';
   if (errorEl) errorEl.textContent = '';
 
   // Show login screen

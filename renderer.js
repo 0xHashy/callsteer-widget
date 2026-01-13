@@ -1026,8 +1026,10 @@ async function handleSignOut() {
   document.getElementById('main-widget').style.display = 'none';
   document.getElementById('setup-wizard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('rep-name-input').value = '';
-  document.getElementById('client-code-input').value = '';
+
+  // Clear PIN only (keep client code and rep ID pre-filled for convenience)
+  const pinInput = document.getElementById('pin-input');
+  if (pinInput) pinInput.value = '';
   document.getElementById('login-error').textContent = '';
 
   console.log('[Auth] Signed out');
