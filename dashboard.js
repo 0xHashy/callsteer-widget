@@ -608,7 +608,8 @@ function updateYourPosition(position) {
   if (rankEl) rankEl.textContent = position.rank ? `#${position.rank}` : '#-';
   if (valueEl) {
     if (currentLbMetric === 'adoption') {
-      valueEl.textContent = formatPercent(position.value || 0);
+      // adoption_rate is already a percentage (e.g., 28.2), so divide by 100 for formatPercent
+      valueEl.textContent = formatPercent((position.value || 0) / 100);
     } else {
       valueEl.textContent = position.value || 0;
     }
