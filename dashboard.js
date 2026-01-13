@@ -4,6 +4,7 @@ const API_BASE_URL = 'https://callsteer-backend-production.up.railway.app';
 
 let clientCode = null;
 let clientInfo = null;
+let repId = null;
 
 // ==================== INITIALIZATION ====================
 
@@ -29,6 +30,10 @@ async function initDashboard() {
     setupLoginForm();
     return;
   }
+
+  // Generate repId from rep_name for stats lookups
+  repId = clientInfo.rep_id || generateRepId(clientInfo.rep_name);
+  console.log('[Dashboard] Rep ID:', repId);
 
   // Show main dashboard
   showDashboard();
@@ -337,6 +342,13 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function generateRepId(name) {
+  if (!name) return null;
+  const normalized = name.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 20);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${normalized}_${random}`;
+}
+
 // ==================== PERFORMANCE TAB ====================
 
 let currentPerfPeriod = 'today';
@@ -360,7 +372,7 @@ async function loadPerformanceStats() {
   console.log('[Dashboard] Loading performance stats for period:', currentPerfPeriod);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/stats/performance?client_code=${encodeURIComponent(clientCode)}&period=${currentPerfPeriod}`);
+    const response = await fetch(`${API_BASE_URL}/api/stats/performance?client_code=${encodeURIComponent(clientCode)}&rep_id=${encodeURIComponent(repId || '')}&period=${currentPerfPeriod}`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);

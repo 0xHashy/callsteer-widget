@@ -3135,8 +3135,11 @@ async function syncAdoptionToBackend() {
   console.log('[Adoption] custom_nudge_id field:', currentNudge.custom_nudge_id);
 
   try {
-    // Build request body - include custom_nudge_id if this is a playbook nudge
-    const body = {};
+    // Build request body - include custom_nudge_id, rep_id, and client_code for gamification tracking
+    const body = {
+      rep_id: repId,
+      client_code: clientCode
+    };
     if (isCustom && currentNudge.custom_nudge_id) {
       body.custom_nudge_id = currentNudge.custom_nudge_id;
     }
