@@ -1998,6 +1998,12 @@ function processNudges(newNudges) {
   let newCount = 0;
 
   newNudges.forEach(nudge => {
+    // DEBUG: Log nudge structure when received
+    console.log('[ProcessNudge] Received nudge:', nudge);
+    console.log('[ProcessNudge] nudge_id:', nudge.nudge_id);
+    console.log('[ProcessNudge] source:', nudge.source);
+    console.log('[ProcessNudge] custom_nudge_id:', nudge.custom_nudge_id);
+
     if (nudge.nudge_id && !seenNudgeIds.has(nudge.nudge_id)) {
       seenNudgeIds.add(nudge.nudge_id);
       nudges.unshift(nudge);
@@ -2013,6 +2019,8 @@ function processNudges(newNudges) {
 
     // Show the newest nudge
     currentNudge = nudges[0];
+    console.log('[ProcessNudge] Set currentNudge:', currentNudge);
+    console.log('[ProcessNudge] currentNudge.custom_nudge_id:', currentNudge?.custom_nudge_id);
     displayNudge(currentNudge);
     playNotificationSound();
     updateStats();
@@ -3048,6 +3056,14 @@ function checkRebuttalMatch(repTranscript) {
   if (similarity >= REBUTTAL_MATCH_THRESHOLD || chunkSimilarity >= REBUTTAL_MATCH_THRESHOLD) {
     const matchType = chunkSimilarity >= REBUTTAL_MATCH_THRESHOLD ? 'chunk' : 'accumulated';
     console.log(`[Rebuttal] ✅ MATCH DETECTED (${matchType})! Rep used the rebuttal.`);
+
+    // DEBUG: Log adoption detection details
+    console.log('[Adoption] Detected rep said rebuttal');
+    console.log('[Adoption] Current nudge:', currentNudge);
+    console.log('[Adoption] Nudge ID:', currentNudge?.nudge_id);
+    console.log('[Adoption] Source:', currentNudge?.source);
+    console.log('[Adoption] Custom Nudge ID:', currentNudge?.custom_nudge_id);
+
     onRebuttalUsed();
     // Clear buffer after successful match to prevent double-counting
     repTranscriptBuffer = [];
@@ -3111,7 +3127,12 @@ async function syncAdoptionToBackend() {
   const nudgeId = currentNudge.nudge_id;
   const isCustom = nudgeId.startsWith('custom_') || currentNudge.source === 'custom_playbook';
 
-  console.log('[Adoption] Syncing to backend:', nudgeId, isCustom ? '(custom playbook)' : '');
+  // DEBUG: Detailed logging before sync
+  console.log('[Adoption] ====== SYNC TO BACKEND ======');
+  console.log('[Adoption] Nudge ID:', nudgeId);
+  console.log('[Adoption] Is Custom:', isCustom);
+  console.log('[Adoption] Source:', currentNudge.source);
+  console.log('[Adoption] custom_nudge_id field:', currentNudge.custom_nudge_id);
 
   try {
     // Build request body - include custom_nudge_id if this is a playbook nudge
@@ -3119,6 +3140,9 @@ async function syncAdoptionToBackend() {
     if (isCustom && currentNudge.custom_nudge_id) {
       body.custom_nudge_id = currentNudge.custom_nudge_id;
     }
+
+    console.log('[Adoption] Request body:', JSON.stringify(body));
+    console.log('[Adoption] POST URL:', `${API_BASE_URL}/api/nudges/${encodeURIComponent(nudgeId)}/adopt`);
 
     const response = await fetch(`${API_BASE_URL}/api/nudges/${encodeURIComponent(nudgeId)}/adopt`, {
       method: 'POST',
