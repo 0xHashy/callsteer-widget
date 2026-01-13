@@ -232,22 +232,23 @@ async function loadTodayStats() {
     return;
   }
 
-  console.log('[Dashboard] Loading today\'s stats...');
+  console.log('[Dashboard] Loading today\'s stats from unified endpoint...');
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/stats/today?client_code=${encodeURIComponent(clientCode)}`);
+    // Use unified stats endpoint - single source of truth
+    const response = await fetch(`${API_BASE_URL}/api/stats/unified?client_code=${encodeURIComponent(clientCode)}&rep_id=${encodeURIComponent(repId || '')}&period=today`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('[Dashboard] Stats loaded:', data);
+    console.log('[Dashboard] Unified stats loaded:', data);
 
-    // Update stat cards
-    updateStatCard('stat-today-nudges', data.nudges_shown || 0);
-    updateStatCard('stat-today-used', data.nudges_used || 0);
-    updateStatCard('stat-today-adoption', formatPercent(data.adoption_rate || 0));
+    // Update stat cards from unified endpoint
+    updateStatCard('stat-today-nudges', data.overall?.total_nudges || 0);
+    updateStatCard('stat-today-used', data.overall?.total_adopted || 0);
+    updateStatCard('stat-today-adoption', formatPercent((data.overall?.adoption_rate || 0) / 100));
     updateStatCard('stat-today-streak', data.streak || 0);
 
     // Update rank
@@ -262,7 +263,7 @@ async function loadTodayStats() {
       rankBanner.style.display = data.rank ? 'flex' : 'none';
     }
 
-    // Update recent activity
+    // Update recent activity with proper timestamps
     updateRecentActivity(data.recent_activity || []);
 
   } catch (e) {
@@ -372,30 +373,91 @@ async function loadPerformanceStats() {
   console.log('[Dashboard] Loading performance stats for period:', currentPerfPeriod);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/stats/performance?client_code=${encodeURIComponent(clientCode)}&rep_id=${encodeURIComponent(repId || '')}&period=${currentPerfPeriod}`);
+    // Use unified stats endpoint - single source of truth
+    const response = await fetch(`${API_BASE_URL}/api/stats/unified?client_code=${encodeURIComponent(clientCode)}&rep_id=${encodeURIComponent(repId || '')}&period=${currentPerfPeriod}`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('[Dashboard] Performance stats:', data);
+    console.log('[Dashboard] Performance stats (unified):', data);
 
-    // Update performance stats
-    updateStatCard('perf-total-nudges', data.nudges_shown || 0);
-    updateStatCard('perf-nudges-used', data.nudges_used || 0);
-    updateStatCard('perf-adoption-rate', formatPercent(data.adoption_rate || 0));
+    // Update performance stats from unified endpoint
+    updateStatCard('perf-total-nudges', data.overall?.total_nudges || 0);
+    updateStatCard('perf-nudges-used', data.overall?.total_adopted || 0);
+    updateStatCard('perf-adoption-rate', formatPercent((data.overall?.adoption_rate || 0) / 100));
     updateStatCard('perf-current-streak', data.streak || 0);
 
-    // Update category breakdown
-    updateCategoryBreakdown(data.categories || {});
+    // Category breakdown from unified endpoint
+    const categories = data.categories || {};
+    const categoryDisplay = {};
+    for (const [cat, stats] of Object.entries(categories)) {
+      categoryDisplay[cat] = stats.shown || 0;
+    }
+    updateCategoryBreakdown(categoryDisplay);
 
-    // Update insights
-    updateInsights(data.insights || []);
+    // Generate insights from unified data
+    const insights = generateInsights(data);
+    updateInsights(insights);
 
   } catch (e) {
     console.error('[Dashboard] Error loading performance stats:', e);
   }
+}
+
+function generateInsights(data) {
+  const insights = [];
+  const categories = data.categories || {};
+  const overall = data.overall || {};
+
+  // Find best and worst categories
+  let bestCat = null, worstCat = null;
+  let bestRate = -1, worstRate = 101;
+
+  for (const [cat, stats] of Object.entries(categories)) {
+    if (stats.shown > 0) {
+      const rate = (stats.adopted / stats.shown) * 100;
+      if (rate > bestRate) {
+        bestRate = rate;
+        bestCat = cat;
+      }
+      if (rate < worstRate) {
+        worstRate = rate;
+        worstCat = cat;
+      }
+    }
+  }
+
+  if (bestCat && bestRate > 50) {
+    insights.push({
+      type: 'success',
+      text: `Great job on ${bestCat} objections! ${Math.round(bestRate)}% adoption rate.`
+    });
+  }
+
+  if (worstCat && worstRate < 30 && categories[worstCat].shown >= 3) {
+    insights.push({
+      type: 'warning',
+      text: `${worstCat.charAt(0).toUpperCase() + worstCat.slice(1)} objections need attention. Try using more nudges!`
+    });
+  }
+
+  if (overall.adoption_rate > 60) {
+    insights.push({
+      type: 'improvement',
+      text: `You're in the top performers with ${overall.adoption_rate}% overall adoption!`
+    });
+  }
+
+  if (data.streak >= 3) {
+    insights.push({
+      type: 'success',
+      text: `${data.streak} day streak! Keep using nudges daily to maintain it.`
+    });
+  }
+
+  return insights;
 }
 
 function updateCategoryBreakdown(categories) {
@@ -497,7 +559,8 @@ async function loadLeaderboard() {
   console.log('[Dashboard] Loading leaderboard:', currentLbPeriod, currentLbMetric);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/stats/leaderboard?client_code=${encodeURIComponent(clientCode)}&period=${currentLbPeriod}&metric=${currentLbMetric}`);
+    // Use new leaderboard endpoint
+    const response = await fetch(`${API_BASE_URL}/api/stats/leaderboard?client_code=${encodeURIComponent(clientCode)}&period=${currentLbPeriod}`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -506,11 +569,27 @@ async function loadLeaderboard() {
     const data = await response.json();
     console.log('[Dashboard] Leaderboard data:', data);
 
-    // Update your position
-    updateYourPosition(data.your_position || {});
+    // Find your position from the leaderboard
+    const leaderboard = data.leaderboard || [];
+    let yourPosition = { rank: null, value: 0 };
 
-    // Update leaderboard table
-    updateLeaderboardTable(data.rankings || []);
+    if (repId) {
+      const repBase = repId.split('_')[0].toLowerCase();
+      for (let i = 0; i < leaderboard.length; i++) {
+        const entry = leaderboard[i];
+        const entryBase = (entry.rep_id || '').split('_')[0].toLowerCase();
+        if (entryBase === repBase || entry.name?.toLowerCase() === repBase) {
+          yourPosition = {
+            rank: i + 1,
+            value: currentLbMetric === 'adoption' ? entry.adoption_rate : entry.total_nudges
+          };
+          break;
+        }
+      }
+    }
+
+    updateYourPosition(yourPosition);
+    updateLeaderboardTable(leaderboard);
 
   } catch (e) {
     console.error('[Dashboard] Error loading leaderboard:', e);
@@ -546,17 +625,20 @@ function updateLeaderboardTable(rankings) {
   }
 
   tbody.innerHTML = rankings.map((rep, index) => {
-    const rank = index + 1;
-    const isYou = rep.client_code === clientCode;
+    const rank = rep.rank || (index + 1);
+    // Check if this is the current user (compare base names)
+    const repBase = (rep.rep_id || '').split('_')[0].toLowerCase();
+    const myBase = (repId || '').split('_')[0].toLowerCase();
+    const isYou = repBase && myBase && (repBase === myBase || rep.name?.toLowerCase() === myBase);
     const rankBadge = getRankBadge(rank);
 
     return `
       <tr class="${isYou ? 'is-you' : ''}">
         <td class="col-rank">${rankBadge}</td>
-        <td class="col-name">${escapeHtml(rep.rep_name || 'Unknown')}${isYou ? ' (You)' : ''}</td>
-        <td class="col-nudges">${rep.nudges_shown || 0}</td>
-        <td class="col-used">${rep.nudges_used || 0}</td>
-        <td class="col-adoption">${formatPercent(rep.adoption_rate || 0)}</td>
+        <td class="col-name">${escapeHtml(rep.name || rep.rep_name || 'Unknown')}${isYou ? ' (You)' : ''}</td>
+        <td class="col-nudges">${rep.total_nudges || rep.nudges_shown || 0}</td>
+        <td class="col-used">${rep.adopted || rep.nudges_used || 0}</td>
+        <td class="col-adoption">${formatPercent((rep.adoption_rate || 0) / 100)}</td>
         <td class="col-streak">${rep.streak || 0}</td>
       </tr>
     `;

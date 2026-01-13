@@ -59,23 +59,34 @@
       <div class="login-form">
         <input
           type="text"
-          id="rep-name-input"
-          class="input-field"
-          placeholder="Your name (e.g. John S)"
-          maxlength="30"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <p class="input-hint">Use a unique name you'll remember - this tracks your stats</p>
-        <input
-          type="text"
           id="client-code-input"
           class="input-field"
           placeholder="Company code"
           maxlength="6"
           autocomplete="off"
           spellcheck="false"
+          style="text-transform: uppercase;"
         />
+        <input
+          type="text"
+          id="rep-id-input"
+          class="input-field"
+          placeholder="Rep ID (e.g. REP-A1B2C3)"
+          maxlength="20"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <input
+          type="password"
+          id="pin-input"
+          class="input-field"
+          placeholder="6-digit PIN"
+          maxlength="6"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="off"
+        />
+        <p class="input-hint">Get your Rep ID and PIN from your manager</p>
         <div class="login-error" id="login-error"></div>
         <button class="btn btn-primary" id="connect-btn">
           <span class="btn-text">Connect</span>
@@ -83,7 +94,7 @@
         </button>
       </div>
 
-      <a href="#" class="signup-link" id="signup-link">Get a code at callsteer.com</a>
+      <a href="#" class="signup-link" id="signup-link">Get started at callsteer.com</a>
     </div>
   </div>
 

@@ -1109,7 +1109,8 @@ async function populateDeviceDropdowns() {
 function setupLoginHandlers() {
   const connectBtn = document.getElementById('connect-btn');
   const codeInput = document.getElementById('client-code-input');
-  const nameInput = document.getElementById('rep-name-input');
+  const repIdInput = document.getElementById('rep-id-input');
+  const pinInput = document.getElementById('pin-input');
   const signupLink = document.getElementById('signup-link');
 
   connectBtn?.addEventListener('click', handleLogin);
@@ -1119,14 +1120,25 @@ function setupLoginHandlers() {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   });
 
-  // Enter key handling for both inputs
-  nameInput?.addEventListener('keypress', (e) => {
+  // PIN input - numbers only
+  pinInput?.addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+  });
+
+  // Enter key handling - move through fields
+  codeInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-      codeInput?.focus(); // Move to code input
+      repIdInput?.focus();
     }
   });
 
-  codeInput?.addEventListener('keypress', (e) => {
+  repIdInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      pinInput?.focus();
+    }
+  });
+
+  pinInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleLogin();
   });
 
@@ -1135,32 +1147,42 @@ function setupLoginHandlers() {
     window.electronAPI?.openExternal('https://callsteer.com');
   });
 
-  // Pre-fill name if saved (for convenience)
-  if (nameInput && repName) {
-    nameInput.value = repName;
-  }
+  // Pre-fill saved values for convenience
+  const savedCode = localStorage.getItem('callsteer_client_code');
+  const savedRepId = localStorage.getItem('callsteer_rep_id');
+  if (codeInput && savedCode) codeInput.value = savedCode;
+  if (repIdInput && savedRepId) repIdInput.value = savedRepId;
 }
 
 async function handleLogin() {
-  const nameInput = document.getElementById('rep-name-input');
   const codeInput = document.getElementById('client-code-input');
+  const repIdInput = document.getElementById('rep-id-input');
+  const pinInput = document.getElementById('pin-input');
   const errorEl = document.getElementById('login-error');
   const connectBtn = document.getElementById('connect-btn');
 
-  const name = nameInput?.value.trim() || '';
-  const code = codeInput.value.trim().toUpperCase();
+  const code = codeInput?.value.trim().toUpperCase() || '';
+  const repIdValue = repIdInput?.value.trim() || '';
+  const pin = pinInput?.value.trim() || '';
 
-  // Validate name
-  if (!name || name.length < 2) {
-    showLoginError('Enter your name');
-    nameInput?.focus();
+  // Validate company code
+  if (!code || code.length !== 6) {
+    showLoginError('Enter a 6-character company code');
+    codeInput?.focus();
     return;
   }
 
-  // Validate code
-  if (!code || code.length !== 6) {
-    showLoginError('Enter a 6-character code');
-    codeInput?.focus();
+  // Validate rep ID
+  if (!repIdValue) {
+    showLoginError('Enter your Rep ID');
+    repIdInput?.focus();
+    return;
+  }
+
+  // Validate PIN
+  if (!pin || pin.length !== 6) {
+    showLoginError('Enter your 6-digit PIN');
+    pinInput?.focus();
     return;
   }
 
@@ -1169,34 +1191,50 @@ async function handleLogin() {
   connectBtn.disabled = true;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/clients/${code}`);
-
-    if (!response.ok) {
-      throw new Error(response.status === 404 ? 'Invalid code' : 'Connection error');
-    }
+    // Call the new rep login endpoint
+    const response = await fetch(`${API_BASE_URL}/api/rep/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_code: code,
+        rep_id: repIdValue,
+        pin: pin
+      })
+    });
 
     const data = await response.json();
 
-    // Save rep name and generate rep ID
-    repName = name;
+    if (!response.ok) {
+      throw new Error(data.detail || 'Login failed');
+    }
+
+    // Save login info
+    repName = data.name;
+    repId = data.rep_id;
+    clientCode = data.client_code;
+
     localStorage.setItem('callsteer_rep_name', repName);
-    localStorage.setItem('callsteer_company_name', data.company_name);
-    localStorage.setItem('callsteer_client_code', code);
-    repId = generateRepId(repName);
+    localStorage.setItem('callsteer_rep_id', repId);
+    localStorage.setItem('callsteer_client_code', clientCode);
+    localStorage.setItem('callsteer_company_name', data.company_name || '');
+
     console.log('[Auth] Rep logged in:', repName, 'ID:', repId);
 
-    clientCode = code;
     clientInfo = {
-      client_code: code,
+      client_code: clientCode,
       company_name: data.company_name,
-      has_dna: data.has_dna,
-      rep_name: repName  // Include rep name for dashboard
+      rep_name: repName,
+      rep_id: repId,
+      role: data.role
     };
 
     if (window.electronAPI) {
-      await window.electronAPI.saveClientCode(code);
+      await window.electronAPI.saveClientCode(clientCode);
       await window.electronAPI.saveClientInfo(clientInfo);
     }
+
+    // Clear PIN from memory (security)
+    pinInput.value = '';
 
     // Check if dialer is already configured
     if (selectedDialerSource) {
@@ -1234,8 +1272,9 @@ async function handleLogout() {
   nudges = [];
   currentNudge = null;
 
-  // Clear inputs (name stays pre-filled from localStorage)
-  document.getElementById('client-code-input').value = '';
+  // Clear inputs (code and rep ID stay pre-filled from localStorage for convenience)
+  const pinInput = document.getElementById('pin-input');
+  if (pinInput) pinInput.value = '';
   document.getElementById('login-error').textContent = '';
 
   showLoginScreen();
