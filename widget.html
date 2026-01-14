@@ -576,8 +576,18 @@
           <!-- Nudge Card (hidden by default) -->
           <div class="nudge-card" id="nudge-card" style="display: none;">
             <div class="nudge-header">
-              <span class="nudge-type" id="nudge-type">TIP</span>
-              <span class="nudge-time" id="nudge-time">Just now</span>
+              <div class="nudge-category" id="nudge-category">
+                <span class="category-icon" id="category-icon">💰</span>
+                <span class="category-label" id="category-label">PRICE</span>
+              </div>
+              <div class="nudge-tone" id="nudge-tone" title="Delivery tone">
+                <span class="tone-icon" id="tone-icon">🔥</span>
+                <span class="tone-label" id="tone-label">Confident</span>
+              </div>
+            </div>
+            <div class="nudge-echo" id="nudge-echo">
+              <span class="echo-label">Heard:</span>
+              <span class="echo-text" id="echo-text">"Price concern"</span>
             </div>
             <p class="nudge-text" id="nudge-text"></p>
             <div class="nudge-actions">

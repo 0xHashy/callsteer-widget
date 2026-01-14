@@ -119,6 +119,32 @@
 
 [data-theme="light"] .nudge-echo {
   background: rgba(0, 153, 170, 0.08);
+  border-color: rgba(0, 153, 170, 0.12);
+}
+
+[data-theme="light"] .nudge-category {
+  background: rgba(0, 153, 170, 0.1);
+  border-color: rgba(0, 153, 170, 0.2);
+}
+
+[data-theme="light"] .nudge-tone {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .nudge-tone.confident {
+  background: rgba(255, 149, 0, 0.1);
+}
+
+[data-theme="light"] .nudge-tone.soft {
+  background: rgba(52, 199, 89, 0.1);
+}
+
+[data-theme="light"] .nudge-tone.graceful {
+  background: rgba(175, 82, 222, 0.1);
+}
+
+[data-theme="light"] .nudge-tone.close {
+  background: rgba(255, 59, 48, 0.1);
 }
 
 [data-theme="light"] .stats-hero {
@@ -1470,9 +1496,88 @@ button, select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  gap: 8px;
 }
 
+/* Category tag (left side) */
+.nudge-category {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(0, 199, 190, 0.15);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 199, 190, 0.3);
+}
+
+.category-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.category-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+/* Tone indicator (right side) */
+.nudge-tone {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+.tone-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.tone-label {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Tone variants */
+.nudge-tone.confident {
+  background: rgba(255, 149, 0, 0.15);
+}
+.nudge-tone.confident .tone-label {
+  color: #ff9500;
+}
+
+.nudge-tone.soft {
+  background: rgba(52, 199, 89, 0.15);
+}
+.nudge-tone.soft .tone-label {
+  color: #34c759;
+}
+
+.nudge-tone.graceful {
+  background: rgba(175, 82, 222, 0.15);
+}
+.nudge-tone.graceful .tone-label {
+  color: #af52de;
+}
+
+.nudge-tone.close {
+  background: rgba(255, 59, 48, 0.15);
+}
+.nudge-tone.close .tone-label {
+  color: #ff3b30;
+}
+
+/* Legacy - keep for backwards compatibility */
 .nudge-type {
   font-size: 8px;
   font-weight: 700;
@@ -1495,30 +1600,35 @@ button, select {
   margin-bottom: 10px;
 }
 
-/* Echo styling - MUST BE NOTICEABLE - shows what customer said */
+/* Echo styling - shows what customer said (what was heard) */
 .nudge-echo {
-  display: block;
-  font-size: 12px;
-  font-style: italic;
-  font-weight: 600;
-  color: var(--accent);
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
   padding: 6px 10px;
-  background: rgba(0, 199, 190, 0.15);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 6px 6px 0;
-  text-shadow: 0 0 10px rgba(0, 199, 190, 0.3);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Add quotes around the echo text via CSS */
-.nudge-echo::before {
-  content: '"';
-  opacity: 0.7;
+.echo-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
-.nudge-echo::after {
-  content: '"';
-  opacity: 0.7;
+.echo-text {
+  font-style: italic;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nudge-suggestion {

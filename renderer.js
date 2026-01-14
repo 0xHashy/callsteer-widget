@@ -35,6 +35,28 @@ let pickerResolve = null;         // Promise resolver for picker modal
 let popupDismissTimer = null;
 const POPUP_AUTO_DISMISS_MS = 15000;
 
+// ==================== NUDGE CATEGORY/TONE DISPLAY ====================
+// Category mapping for UI display (objection type -> icon + label)
+const CATEGORY_DISPLAY = {
+  'Value_Gap_Bridge': { icon: '💰', label: 'Price', color: 'price' },
+  'Risk_Transfer': { icon: '📋', label: 'Contract', color: 'risk' },
+  'Authority_Isolation': { icon: '👥', label: 'Authority', color: 'authority' },
+  'Competitive_Differentiation': { icon: '🏆', label: 'Competitor', color: 'competitor' },
+  'Temporal_Urgency': { icon: '⏰', label: 'Timing', color: 'timing' },
+  'Status_Quo_Disruption': { icon: '🔄', label: 'Status Quo', color: 'status' },
+  'Trust_Building': { icon: '🤝', label: 'Trust', color: 'trust' },
+  'Close_Now': { icon: '🎯', label: 'Buy Signal', color: 'close' },
+  'Graceful_Exit': { icon: '🚪', label: 'Exit', color: 'exit' }
+};
+
+// Tone mapping based on persistence layer (sales psychology escalation)
+const TONE_DISPLAY = {
+  'initial': { icon: '🔥', label: 'Confident', class: 'confident' },
+  'varied': { icon: '🤝', label: 'Soft', class: 'soft' },
+  'escalated': { icon: '🚪', label: 'Graceful', class: 'graceful' },
+  'close': { icon: '🎯', label: 'Close!', class: 'close' }
+};
+
 // ==================== NUDGE AUTO-DISMISS STATE ====================
 let nudgeAutoDismissTimer = null;
 const NUDGE_IGNORE_TIMEOUT_MS = 60000; // 60 seconds = auto-dismiss if ignored
@@ -114,7 +136,7 @@ let transcriptBufferTimeouts = {
   rep: null,
   customer: null
 };
-const BUFFER_DELAY_MS = 800;  // Reduced from 1500ms for faster nudges
+const BUFFER_DELAY_MS = 1200;  // Increased to better aggregate compound statements
 const MIN_TRANSCRIPT_LENGTH = 15; // Minimum chars to send
 
 /**
@@ -2098,11 +2120,18 @@ function processNudges(newNudges) {
 function displayNudge(nudge) {
   const nudgeCard = document.getElementById('nudge-card');
   const nudgeEmpty = document.getElementById('nudge-empty');
-  const nudgeType = document.getElementById('nudge-type');
-  const nudgeTime = document.getElementById('nudge-time');
   const nudgeText = document.getElementById('nudge-text');
   const voteUpBtn = document.getElementById('vote-up-btn');
   const voteDownBtn = document.getElementById('vote-down-btn');
+
+  // New enhanced UI elements
+  const categoryIcon = document.getElementById('category-icon');
+  const categoryLabel = document.getElementById('category-label');
+  const toneEl = document.getElementById('nudge-tone');
+  const toneIcon = document.getElementById('tone-icon');
+  const toneLabel = document.getElementById('tone-label');
+  const echoEl = document.getElementById('nudge-echo');
+  const echoText = document.getElementById('echo-text');
 
   // Reset vote buttons for new nudge
   voteUpBtn?.classList.remove('voted');
@@ -2124,13 +2153,33 @@ function displayNudge(nudge) {
   nudgeEmpty.style.display = 'none';
   nudgeCard.style.display = 'block';
 
-  // Set content
-  nudgeType.textContent = (nudge.category || 'TIP').toUpperCase().replace(/_/g, ' ');
-  nudgeTime.textContent = formatTimestamp(nudge.timestamp);
+  // Set category display
+  const category = nudge.category || 'Value_Gap_Bridge';
+  const categoryInfo = CATEGORY_DISPLAY[category] || CATEGORY_DISPLAY['Value_Gap_Bridge'];
+  if (categoryIcon) categoryIcon.textContent = categoryInfo.icon;
+  if (categoryLabel) categoryLabel.textContent = categoryInfo.label;
 
-  // Handle two-part format: echo + suggestion
+  // Set tone based on persistence layer (sales psychology escalation)
+  const persistenceLayer = nudge.persistence_layer || 'initial';
+  // Special case: Close_Now always shows as "Close!" tone
+  const toneKey = category === 'Close_Now' ? 'close' : persistenceLayer;
+  const toneInfo = TONE_DISPLAY[toneKey] || TONE_DISPLAY['initial'];
+  if (toneIcon) toneIcon.textContent = toneInfo.icon;
+  if (toneLabel) toneLabel.textContent = toneInfo.label;
+  if (toneEl) {
+    toneEl.className = 'nudge-tone ' + toneInfo.class;
+  }
+
+  // Set echo (what was heard from customer)
   const echo = nudge.echo || '';
-  const suggestion = nudge.suggestion || 'No suggestion';
+  if (echoText) {
+    echoText.textContent = echo ? `"${echo}"` : '';
+    if (echoEl) echoEl.style.display = echo ? 'flex' : 'none';
+  }
+
+  // Set suggestion text
+  const suggestion = nudge.suggestion || nudge.text || 'No suggestion';
+  nudgeText.textContent = suggestion;
 
   // Store suggestion for rebuttal tracking
   currentSuggestionText = suggestion;
@@ -2139,14 +2188,6 @@ function displayNudge(nudge) {
 
   // Auto-copy to clipboard if enabled (synced with dashboard setting)
   autoCopyNudge(suggestion);
-
-  if (echo && echo.trim()) {
-    // Display echo on its own line, styled differently
-    nudgeText.innerHTML = `<span class="nudge-echo">"${echo}"</span><span class="nudge-suggestion">${suggestion}</span>`;
-  } else {
-    // No echo, just show suggestion
-    nudgeText.innerHTML = `<span class="nudge-suggestion">${suggestion}</span>`;
-  }
 
   // Add animation
   nudgeCard.style.animation = 'none';
@@ -2180,18 +2221,33 @@ function showNudgePopup(nudge) {
   popup.id = 'active-nudge-popup';
 
   const echo = nudge.echo || '';
-  const suggestion = nudge.suggestion || 'No suggestion';
-  const category = (nudge.category || 'TIP').toUpperCase().replace(/_/g, ' ');
+  const suggestion = nudge.suggestion || nudge.text || 'No suggestion';
+  const category = nudge.category || 'Value_Gap_Bridge';
+  const categoryInfo = CATEGORY_DISPLAY[category] || CATEGORY_DISPLAY['Value_Gap_Bridge'];
+
+  // Get tone based on persistence layer
+  const persistenceLayer = nudge.persistence_layer || 'initial';
+  const toneKey = category === 'Close_Now' ? 'close' : persistenceLayer;
+  const toneInfo = TONE_DISPLAY[toneKey] || TONE_DISPLAY['initial'];
 
   popup.innerHTML = `
     <div class="nudge-header">
-      <span class="nudge-type">${category}</span>
-      <span class="nudge-time">${formatTimestamp(nudge.timestamp)}</span>
+      <div class="nudge-category">
+        <span class="category-icon">${categoryInfo.icon}</span>
+        <span class="category-label">${categoryInfo.label}</span>
+      </div>
+      <div class="nudge-tone ${toneInfo.class}">
+        <span class="tone-icon">${toneInfo.icon}</span>
+        <span class="tone-label">${toneInfo.label}</span>
+      </div>
     </div>
-    <p class="nudge-text">
-      ${echo && echo.trim() ? `<span class="nudge-echo">"${echo}"</span>` : ''}
-      <span class="nudge-suggestion">${suggestion}</span>
-    </p>
+    ${echo && echo.trim() ? `
+    <div class="nudge-echo">
+      <span class="echo-label">Heard:</span>
+      <span class="echo-text">"${echo}"</span>
+    </div>
+    ` : ''}
+    <p class="nudge-text">${suggestion}</p>
     <div class="nudge-actions">
       <button class="nudge-btn popup-copy-btn" title="Copy">
         <svg viewBox="0 0 24 24" width="16" height="16">
