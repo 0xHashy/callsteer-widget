@@ -1,8 +1,9 @@
 // CallSteer Audio Service - Real Microphone Capture
 // Streams microphone audio to Deepgram for transcription
 
-const DEEPGRAM_API_KEY = 'fbd2742fdb1be9c89ff2681a5f35d504d0bd1ad8';
-const DEEPGRAM_URL = 'wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&interim_results=true&punctuate=true&encoding=linear16&sample_rate=16000';
+// API key must be passed via configure() - never hardcode
+let DEEPGRAM_API_KEY = null;
+const DEEPGRAM_BASE_URL = 'wss://api.deepgram.com/v1/listen';
 
 class AudioService {
   constructor() {
@@ -20,6 +21,12 @@ class AudioService {
     this.onTranscript = null;
     this.onError = null;
     this.onStatusChange = null;
+  }
+
+  // Configure with API key from backend (call before using)
+  static configure(apiKey) {
+    DEEPGRAM_API_KEY = apiKey;
+    console.log('[AudioService] Configured with API key');
   }
 
   generateCallId() {
@@ -76,9 +83,15 @@ class AudioService {
 
   async connectToDeepgram() {
     return new Promise((resolve, reject) => {
+      if (!DEEPGRAM_API_KEY) {
+        reject(new Error('Deepgram API key not configured. Call AudioService.configure() first.'));
+        return;
+      }
+
       console.log('[AudioService] Connecting to Deepgram...');
 
-      this.socket = new WebSocket(DEEPGRAM_URL, ['token', DEEPGRAM_API_KEY]);
+      const wsUrl = `${DEEPGRAM_BASE_URL}?model=nova-2&language=en&smart_format=true&interim_results=true&punctuate=true&encoding=linear16&sample_rate=16000`;
+      this.socket = new WebSocket(wsUrl, ['token', DEEPGRAM_API_KEY]);
 
       const timeout = setTimeout(() => {
         if (this.socket && this.socket.readyState !== WebSocket.OPEN) {
