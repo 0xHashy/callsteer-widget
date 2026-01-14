@@ -1258,13 +1258,20 @@ async function handleLogin() {
     localStorage.setItem('callsteer_company_name', data.company_name || '');
 
     // Store service config from backend (never hardcode API keys)
+    console.log('[Auth] Full response data:', JSON.stringify(data, null, 2));
+    console.log('[Auth] data.config:', data.config);
     if (data.config) {
       DEEPGRAM_API_KEY = data.config.deepgram_api_key || null;
       DEEPGRAM_WS_URL = data.config.deepgram_ws_url || 'wss://api.deepgram.com/v1/listen';
       // Persist config for auto-login
       localStorage.setItem('callsteer_deepgram_key', DEEPGRAM_API_KEY || '');
       localStorage.setItem('callsteer_deepgram_url', DEEPGRAM_WS_URL);
-      console.log('[Auth] Service config received from backend');
+      console.log('[Auth] Service config received, deepgram_api_key present:', !!DEEPGRAM_API_KEY);
+      if (DEEPGRAM_API_KEY) {
+        console.log('[Auth] Deepgram key length:', DEEPGRAM_API_KEY.length);
+      }
+    } else {
+      console.warn('[Auth] No config object in response!');
     }
 
     console.log('[Auth] Rep logged in:', repName, 'ID:', repId);
