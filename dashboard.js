@@ -1114,15 +1114,39 @@ function openSuggestionModal() {
   const modal = document.getElementById('suggestion-modal');
   const form = document.getElementById('suggestion-form');
   const successMsg = document.getElementById('suggestion-success');
+  const submitBtn = document.getElementById('btn-submit-suggestion');
 
-  if (form) form.reset();
+  // Reset form state completely
+  if (form) {
+    form.reset();
+    form.style.display = 'block';
+  }
   if (successMsg) successMsg.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit for Review';
+  }
   if (modal) modal.style.display = 'flex';
 }
 
 function closeSuggestionModal() {
   const modal = document.getElementById('suggestion-modal');
+  const form = document.getElementById('suggestion-form');
+  const successMsg = document.getElementById('suggestion-success');
+  const submitBtn = document.getElementById('btn-submit-suggestion');
+
   if (modal) modal.style.display = 'none';
+
+  // Reset form for next time
+  if (form) {
+    form.reset();
+    form.style.display = 'block';
+  }
+  if (successMsg) successMsg.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit for Review';
+  }
 }
 
 async function handleSuggestionSubmit(e) {
@@ -1138,9 +1162,18 @@ async function handleSuggestionSubmit(e) {
     return;
   }
 
+  // Validate we have required credentials
+  if (!clientCode || !repId) {
+    alert('Session error: Please log out and log back in.');
+    console.error('[Dashboard] Missing credentials:', { clientCode, repId });
+    return;
+  }
+
   const submitBtn = document.getElementById('btn-submit-suggestion');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Submitting...';
+
+  console.log('[Dashboard] Submitting suggestion:', { clientCode, repId, trigger });
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/suggestions?rep_id=${encodeURIComponent(repId)}`, {
@@ -1155,9 +1188,16 @@ async function handleSuggestionSubmit(e) {
     });
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      console.error('[Dashboard] Suggestion error:', res.status, errorData);
-      throw new Error(errorData.detail || `HTTP ${res.status}`);
+      const errorText = await res.text();
+      console.error('[Dashboard] Suggestion error:', res.status, errorText);
+      let errorMsg = `HTTP ${res.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMsg = errorData.detail || JSON.stringify(errorData);
+      } catch (e) {
+        errorMsg = errorText || errorMsg;
+      }
+      throw new Error(errorMsg);
     }
 
     console.log('[Dashboard] Suggestion submitted successfully');
@@ -1179,10 +1219,14 @@ async function handleSuggestionSubmit(e) {
 
   } catch (err) {
     console.error('[Dashboard] Error submitting suggestion:', err);
-    alert(`Failed to submit suggestion: ${err.message}`);
+    const errorMsg = typeof err === 'string' ? err : (err.message || String(err));
+    alert(`Failed to submit suggestion: ${errorMsg}`);
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit for Review';
+    const submitBtn = document.getElementById('btn-submit-suggestion');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit for Review';
+    }
   }
 }
 
