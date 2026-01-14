@@ -1357,27 +1357,6 @@ function setupSetupWizard() {
     if (window.electronAPI) window.electronAPI.minimizeWindow();
   });
 
-  // Step 0: Setup choice buttons
-  document.getElementById('btn-use-chrome-extension')?.addEventListener('click', () => {
-    console.log('[Setup] User chose Chrome Extension');
-    localStorage.setItem('callsteer_setup_choice', 'chrome-extension');
-    openChromeExtension();
-    // Minimize or close the desktop app
-    if (window.electronAPI) window.electronAPI.minimizeWindow();
-  });
-
-  document.getElementById('btn-continue-desktop')?.addEventListener('click', () => {
-    console.log('[Setup] User chose Desktop App');
-    localStorage.setItem('callsteer_setup_choice', 'desktop');
-    showSetupStep(1);
-  });
-
-  // Step 1: Back button goes to step 0
-  document.getElementById('setup-back-btn')?.addEventListener('click', () => {
-    console.log('[Setup] Back button clicked - going to step 0');
-    showSetupStep(0);
-  });
-
   // Step 1: Next button goes to step 2 (Listen setup)
   const nextBtn = document.getElementById('setup-next-btn');
   console.log('[Setup] Next button element:', nextBtn);
@@ -1468,23 +1447,17 @@ function handleSetupDone() {
 }
 
 function showSetupStep(step) {
-  const step0 = document.getElementById('setup-step-0');
   const step1 = document.getElementById('setup-step-1');
   const step2 = document.getElementById('setup-step-2');
   const step3 = document.getElementById('setup-step-3');
 
   // Hide all steps first
-  if (step0) step0.style.display = 'none';
   if (step1) step1.style.display = 'none';
   if (step2) step2.style.display = 'none';
   if (step3) step3.style.display = 'none';
 
   // Show the requested step
   switch (step) {
-    case 0:
-      if (step0) step0.style.display = 'flex';
-      stopMicTest();
-      break;
     case 1:
       if (step1) step1.style.display = 'flex';
       // Start mic test
@@ -1507,16 +1480,8 @@ function showSetupWizard() {
   document.getElementById('main-widget').style.display = 'none';
   document.getElementById('setup-wizard').style.display = 'flex';
 
-  // Check if user has already made a setup choice
-  const savedChoice = localStorage.getItem('callsteer_setup_choice');
-
-  if (savedChoice === 'desktop') {
-    // User already chose desktop, go directly to mic selection
-    showSetupStep(1);
-  } else {
-    // Show setup choice screen (step 0)
-    showSetupStep(0);
-  }
+  // Go directly to mic selection (step 1) - user already chose desktop app by installing it
+  showSetupStep(1);
 
   // Reset next button to disabled state
   const nextBtn = document.getElementById('setup-next-btn');
@@ -3702,8 +3667,7 @@ function showVBCableSetupModal() {
   if (existingModal) existingModal.remove();
   cleanupVBCableTest();
 
-  // Don't show Chrome extension alternative if VB-Cable was previously configured
-  const showChromeAlt = !isVBCableConfigured();
+  // Chrome extension alternative removed - user has chosen desktop app
 
   const modal = document.createElement('div');
   modal.id = 'vbcable-modal';
@@ -3789,21 +3753,6 @@ function showVBCableSetupModal() {
           </div>
         </div>
 
-        ${showChromeAlt ? `
-        <div class="chrome-extension-alternative">
-          <div class="alternative-divider">
-            <span>OR</span>
-          </div>
-          <div class="alternative-content">
-            <span class="alternative-icon">✨</span>
-            <div class="alternative-text">
-              <strong>Want zero setup?</strong>
-              <p>Try our Chrome extension instead - works instantly with web-based dialers!</p>
-            </div>
-            <button class="btn-chrome" onclick="openChromeExtension()">Use Chrome Extension</button>
-          </div>
-        </div>
-        ` : ''}
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeVBCableModal()">Cancel</button>
