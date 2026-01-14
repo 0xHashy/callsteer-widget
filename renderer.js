@@ -250,7 +250,15 @@ async function initializeApp() {
       DEEPGRAM_WS_URL = savedDeepgramUrl || 'wss://api.deepgram.com/v1/listen';
       console.log('[Auth] Service config restored from storage');
     } else {
-      console.warn('[Auth] No Deepgram API key in storage - please sign out and log in again to get service config');
+      // No Deepgram key - session is from before the security update
+      // Force re-login to get fresh credentials with the API key
+      console.warn('[Auth] No Deepgram API key in storage - forcing re-login for security update');
+      localStorage.clear();
+      showLoginScreen();
+      setTimeout(() => {
+        showToast('Please log in again to enable voice transcription.', 'info', 5000);
+      }, 500);
+      return; // Don't continue with the stale session
     }
 
     // Check if mic is configured
