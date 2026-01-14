@@ -3,8 +3,9 @@
 // Also captures mic (rep) and system audio (customer) for Deepgram transcription
 
 // ==================== DEEPGRAM CONFIGURATION ====================
-const DEEPGRAM_API_KEY = '846b9dfcbcd1dc4fbdb03ac2e09fee2fbe3e9fab'; // TODO: Set your Deepgram API key or fetch from backend
-const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
+// API key is fetched from backend after authentication (never hardcoded)
+let DEEPGRAM_API_KEY = null;
+let DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
 
 // ==================== AUDIO CAPTURE STATE ====================
 let micStream = null;           // Rep voice (microphone)
@@ -240,6 +241,17 @@ async function initializeApp() {
     // Generate rep ID based on name
     repId = generateRepId(repName);
     console.log('[Auth] Rep ID:', repId, 'Name:', repName);
+
+    // Restore service config from localStorage (set during login)
+    const savedDeepgramKey = localStorage.getItem('callsteer_deepgram_key');
+    const savedDeepgramUrl = localStorage.getItem('callsteer_deepgram_url');
+    if (savedDeepgramKey && savedDeepgramKey !== '' && savedDeepgramKey !== 'null') {
+      DEEPGRAM_API_KEY = savedDeepgramKey;
+      DEEPGRAM_WS_URL = savedDeepgramUrl || 'wss://api.deepgram.com/v1/listen';
+      console.log('[Auth] Service config restored from storage');
+    } else {
+      console.warn('[Auth] No Deepgram API key in storage - please sign out and log in again to get service config');
+    }
 
     // Check if mic is configured
     if (savedMicId) {
@@ -1019,6 +1031,11 @@ async function handleSignOut() {
   repName = null;
   localStorage.removeItem('callsteer_rep_name');
 
+  // Clear service config (never keep API keys after sign out)
+  DEEPGRAM_API_KEY = null;
+  localStorage.removeItem('callsteer_deepgram_key');
+  localStorage.removeItem('callsteer_deepgram_url');
+
   // Clear dialer selection on sign out (new user might have different dialer)
   clearDialerSelection();
 
@@ -1239,6 +1256,16 @@ async function handleLogin() {
     localStorage.setItem('callsteer_rep_id', repId);
     localStorage.setItem('callsteer_client_code', clientCode);
     localStorage.setItem('callsteer_company_name', data.company_name || '');
+
+    // Store service config from backend (never hardcode API keys)
+    if (data.config) {
+      DEEPGRAM_API_KEY = data.config.deepgram_api_key || null;
+      DEEPGRAM_WS_URL = data.config.deepgram_ws_url || 'wss://api.deepgram.com/v1/listen';
+      // Persist config for auto-login
+      localStorage.setItem('callsteer_deepgram_key', DEEPGRAM_API_KEY || '');
+      localStorage.setItem('callsteer_deepgram_url', DEEPGRAM_WS_URL);
+      console.log('[Auth] Service config received from backend');
+    }
 
     console.log('[Auth] Rep logged in:', repName, 'ID:', repId);
 
