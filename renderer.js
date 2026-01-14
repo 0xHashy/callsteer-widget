@@ -2661,8 +2661,10 @@ function formatTimestamp(timestamp) {
 function isToday(timestamp) {
   if (!timestamp) return false;
   const date = new Date(timestamp);
-  const today = new Date();
-  return date.toDateString() === today.toDateString();
+  // Use UTC date comparison to match backend's day boundary
+  const todayUTC = getUTCDateString();
+  const timestampUTC = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  return timestampUTC === todayUTC;
 }
 
 /**
@@ -3333,15 +3335,25 @@ function getRebuttalStatsKey() {
 }
 
 /**
+ * Get UTC date string for consistent daily boundary with backend
+ * Backend uses UTC midnight as day boundary, so frontend should too
+ */
+function getUTCDateString() {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
  * Save rebuttal stats to localStorage (per-rep)
  */
 function saveRebuttalStats() {
   try {
-    const today = new Date().toDateString();
+    // Use UTC date for consistent daily boundary with backend
+    const today = getUTCDateString();
     const storageKey = getRebuttalStatsKey();
     const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-    // Reset daily counts if it's a new day
+    // Reset daily counts if it's a new day (UTC)
     if (stored.date !== today) {
       stored.date = today;
       stored.todayCount = 0;
@@ -3366,11 +3378,12 @@ function saveRebuttalStats() {
  */
 function loadRebuttalStats() {
   try {
-    const today = new Date().toDateString();
+    // Use UTC date for consistent daily boundary with backend
+    const today = getUTCDateString();
     const storageKey = getRebuttalStatsKey();
     const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-    // Reset daily counts if it's a new day
+    // Reset daily counts if it's a new day (UTC)
     if (stored.date === today) {
       rebuttalsUsedToday = stored.todayCount || 0;
       nudgesReceivedToday = stored.nudgesToday || 0;
