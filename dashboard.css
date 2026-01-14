@@ -1676,6 +1676,178 @@ body {
   border-color: #ff6b6b;
 }
 
+/* Playbook Card Footer (Read-only view for reps) */
+.playbook-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+
+.view-only-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--bg-card-hover);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Suggest Button */
+.btn-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  border: none;
+  border-radius: 8px;
+  color: var(--bg-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-suggest:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.btn-suggest svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Suggestions List */
+.suggestions-list {
+  padding: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  background: var(--bg-card-hover);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border-left: 3px solid var(--border);
+}
+
+.suggestion-item.pending {
+  border-left-color: var(--warning, #f59e0b);
+}
+
+.suggestion-item.approved {
+  border-left-color: var(--success, #10b981);
+}
+
+.suggestion-item.rejected {
+  border-left-color: var(--danger, #ef4444);
+}
+
+.suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.suggestion-status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.status-approved {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.status-rejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.suggestion-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.suggestion-trigger {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.suggestion-response {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.suggestion-notes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.empty-suggestions {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.empty-suggestions p {
+  margin: 8px 0;
+}
+
+/* Success Message */
+.success-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--success, #10b981);
+  font-weight: 500;
+}
+
+.success-message svg {
+  color: var(--success, #10b981);
+}
+
+/* Badge for suggestions count */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--accent);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bg-primary);
+  margin-left: 8px;
+}
+
 /* ==================== PLAYBOOK MODAL ==================== */
 
 .modal-overlay {

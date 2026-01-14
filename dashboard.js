@@ -926,6 +926,7 @@ function onTabSwitch(tabId) {
       break;
     case 'playbook':
       loadPlaybook();
+      loadMySuggestionsCount();
       break;
     case 'settings':
       updateSettingsInfo();
@@ -941,40 +942,55 @@ switchTab = function(tabId) {
 };
 
 // ==================== PLAYBOOK TAB ====================
+// NOTE: Playbook editing (add/edit/delete nudges) is handled via the Admin portal.
+// Reps can view team nudges and suggest new ones using the suggestion system below.
 
-let currentEditNudgeId = null;
 let playbookData = [];
 
 function setupPlaybookTab() {
-  // Setup Add Nudge button
-  const addBtn = document.getElementById('btn-add-nudge');
-  if (addBtn) {
-    addBtn.addEventListener('click', () => openPlaybookModal());
+  // Suggestion modal setup
+  const suggestBtn = document.getElementById('btn-suggest-nudge');
+  if (suggestBtn) {
+    suggestBtn.addEventListener('click', openSuggestionModal);
   }
 
-  // Setup modal close button
-  const closeBtn = document.getElementById('modal-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closePlaybookModal);
+  const suggestionCloseBtn = document.getElementById('suggestion-modal-close');
+  if (suggestionCloseBtn) {
+    suggestionCloseBtn.addEventListener('click', closeSuggestionModal);
   }
 
-  // Setup cancel button
-  const cancelBtn = document.getElementById('btn-cancel-nudge');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', closePlaybookModal);
+  const cancelSuggestionBtn = document.getElementById('btn-cancel-suggestion');
+  if (cancelSuggestionBtn) {
+    cancelSuggestionBtn.addEventListener('click', closeSuggestionModal);
   }
 
-  // Setup form submit
-  const form = document.getElementById('playbook-form');
-  if (form) {
-    form.addEventListener('submit', handlePlaybookSubmit);
+  const suggestionForm = document.getElementById('suggestion-form');
+  if (suggestionForm) {
+    suggestionForm.addEventListener('submit', handleSuggestionSubmit);
   }
 
-  // Close modal when clicking overlay
-  const modal = document.getElementById('playbook-modal');
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closePlaybookModal();
+  const suggestionModal = document.getElementById('suggestion-modal');
+  if (suggestionModal) {
+    suggestionModal.addEventListener('click', (e) => {
+      if (e.target === suggestionModal) closeSuggestionModal();
+    });
+  }
+
+  // My suggestions modal
+  const mySuggestionsBtn = document.getElementById('btn-my-suggestions');
+  if (mySuggestionsBtn) {
+    mySuggestionsBtn.addEventListener('click', openMySuggestionsModal);
+  }
+
+  const mySuggestionsClose = document.getElementById('my-suggestions-close');
+  if (mySuggestionsClose) {
+    mySuggestionsClose.addEventListener('click', closeMySuggestionsModal);
+  }
+
+  const mySuggestionsModal = document.getElementById('my-suggestions-modal');
+  if (mySuggestionsModal) {
+    mySuggestionsModal.addEventListener('click', (e) => {
+      if (e.target === mySuggestionsModal) closeMySuggestionsModal();
     });
   }
 }
@@ -1084,149 +1100,169 @@ function renderPlaybookList(nudges) {
         <span>Adopted: ${nudge.times_adopted || 0}</span>
         <span>Effectiveness: ${nudge.effectiveness || 0}%</span>
       </div>
-      <div class="playbook-actions">
-        <button class="btn-edit" onclick="editNudge(${nudge.id})">Edit</button>
-        <button class="btn-toggle" onclick="toggleNudge(${nudge.id}, ${!nudge.is_active})">
-          ${nudge.is_active ? 'Disable' : 'Enable'}
-        </button>
-        <button class="btn-delete" onclick="deleteNudge(${nudge.id})">Delete</button>
+      <div class="playbook-card-footer">
+        <span class="view-only-badge">Team Nudge</span>
       </div>
     `;
     container.appendChild(card);
   });
 }
 
-function openPlaybookModal(nudge = null) {
-  const modal = document.getElementById('playbook-modal');
-  const title = document.getElementById('modal-title');
-  const form = document.getElementById('playbook-form');
+// ==================== SUGGESTION FUNCTIONS ====================
 
-  if (nudge) {
-    // Edit mode
-    currentEditNudgeId = nudge.id;
-    title.textContent = 'Edit Custom Nudge';
-    document.getElementById('nudge-trigger').value = nudge.trigger_phrase;
-    document.getElementById('nudge-trigger-type').value = nudge.trigger_type;
-    document.getElementById('nudge-category').value = nudge.category;
-    document.getElementById('nudge-response').value = nudge.base_response;
-  } else {
-    // Add mode
-    currentEditNudgeId = null;
-    title.textContent = 'Add Custom Nudge';
-    form.reset();
-  }
+function openSuggestionModal() {
+  const modal = document.getElementById('suggestion-modal');
+  const form = document.getElementById('suggestion-form');
+  const successMsg = document.getElementById('suggestion-success');
 
-  modal.style.display = 'flex';
+  if (form) form.reset();
+  if (successMsg) successMsg.style.display = 'none';
+  if (modal) modal.style.display = 'flex';
 }
 
-function closePlaybookModal() {
-  const modal = document.getElementById('playbook-modal');
-  modal.style.display = 'none';
-  currentEditNudgeId = null;
+function closeSuggestionModal() {
+  const modal = document.getElementById('suggestion-modal');
+  if (modal) modal.style.display = 'none';
 }
 
-async function handlePlaybookSubmit(e) {
+async function handleSuggestionSubmit(e) {
   e.preventDefault();
 
-  const trigger = document.getElementById('nudge-trigger').value.trim();
-  const triggerType = document.getElementById('nudge-trigger-type').value;
-  const category = document.getElementById('nudge-category').value.trim();
-  const response = document.getElementById('nudge-response').value.trim();
+  const trigger = document.getElementById('suggestion-trigger').value.trim();
+  const response = document.getElementById('suggestion-response').value.trim();
+  const category = document.getElementById('suggestion-category').value;
+  const context = document.getElementById('suggestion-context').value.trim();
 
-  if (!trigger || !category || !response) {
-    alert('Please fill in all required fields');
+  if (!trigger || !response) {
+    alert('Please fill in the required fields');
     return;
   }
 
-  const saveBtn = document.getElementById('btn-save-nudge');
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  const submitBtn = document.getElementById('btn-submit-suggestion');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
 
   try {
-    let url, method;
-    const body = {
-      trigger_phrase: trigger,
-      trigger_type: triggerType,
-      category: category,
-      base_response: response
-    };
+    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/suggestions?rep_id=${encodeURIComponent(repId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        trigger_phrase: trigger,
+        suggested_response: response,
+        category: category || null,
+        context: context || null
+      })
+    });
 
-    if (currentEditNudgeId) {
-      // Update existing
-      url = `${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${currentEditNudgeId}`;
-      method = 'PATCH';
-    } else {
-      // Create new
-      url = `${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges`;
-      method = 'POST';
-      body.created_by = clientInfo?.rep_name || 'Manager';
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('[Dashboard] Suggestion error:', res.status, errorData);
+      throw new Error(errorData.detail || `HTTP ${res.status}`);
     }
 
-    const res = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    console.log('[Dashboard] Suggestion submitted successfully');
+
+    // Show success message
+    const form = document.getElementById('suggestion-form');
+    const successMsg = document.getElementById('suggestion-success');
+    if (form) form.style.display = 'none';
+    if (successMsg) successMsg.style.display = 'flex';
+
+    // Update suggestions count
+    loadMySuggestionsCount();
+
+    // Close modal after delay
+    setTimeout(() => {
+      closeSuggestionModal();
+      if (form) form.style.display = 'block';
+    }, 2000);
+
+  } catch (err) {
+    console.error('[Dashboard] Error submitting suggestion:', err);
+    alert(`Failed to submit suggestion: ${err.message}`);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit for Review';
+  }
+}
+
+function openMySuggestionsModal() {
+  const modal = document.getElementById('my-suggestions-modal');
+  if (modal) modal.style.display = 'flex';
+  loadMySuggestions();
+}
+
+function closeMySuggestionsModal() {
+  const modal = document.getElementById('my-suggestions-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function loadMySuggestions() {
+  const container = document.getElementById('my-suggestions-list');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading...</div>';
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/suggestions?rep_id=${encodeURIComponent(repId)}`);
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
 
     const data = await res.json();
-    console.log('[Dashboard] Nudge saved:', data);
+    const suggestions = data.suggestions || [];
 
-    closePlaybookModal();
-    await loadPlaybook();
+    if (suggestions.length === 0) {
+      container.innerHTML = `
+        <div class="empty-suggestions">
+          <p>You haven't submitted any suggestions yet.</p>
+          <p>When you find a rebuttal that works well, share it with your team!</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = suggestions.map(s => `
+      <div class="suggestion-item ${s.status}">
+        <div class="suggestion-header">
+          <span class="suggestion-status status-${s.status}">${s.status}</span>
+          <span class="suggestion-date">${formatSuggestionDate(s.created_at)}</span>
+        </div>
+        <div class="suggestion-trigger">"${escapeHtml(s.trigger_phrase)}"</div>
+        <div class="suggestion-response">${escapeHtml(s.suggested_response)}</div>
+        ${s.admin_notes ? `<div class="suggestion-notes"><strong>Admin notes:</strong> ${escapeHtml(s.admin_notes)}</div>` : ''}
+      </div>
+    `).join('');
 
   } catch (err) {
-    console.error('[Dashboard] Error saving nudge:', err);
-    alert('Failed to save nudge. Please try again.');
-  } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Nudge';
+    console.error('[Dashboard] Error loading suggestions:', err);
+    container.innerHTML = '<div class="error">Failed to load suggestions</div>';
   }
 }
 
-function editNudge(nudgeId) {
-  const nudge = playbookData.find(n => n.id === nudgeId);
-  if (nudge) {
-    openPlaybookModal(nudge);
-  }
-}
-
-async function toggleNudge(nudgeId, newState) {
+async function loadMySuggestionsCount() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${nudgeId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_active: newState })
-    });
+    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/suggestions?rep_id=${encodeURIComponent(repId)}`);
 
     if (res.ok) {
-      await loadPlaybook();
+      const data = await res.json();
+      const count = (data.suggestions || []).filter(s => s.status === 'pending').length;
+      const badge = document.getElementById('my-suggestions-count');
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline' : 'none';
+      }
     }
   } catch (err) {
-    console.error('[Dashboard] Error toggling nudge:', err);
+    console.error('[Dashboard] Error loading suggestions count:', err);
   }
 }
 
-async function deleteNudge(nudgeId) {
-  if (!confirm('Are you sure you want to delete this nudge?')) {
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/playbook/${encodeURIComponent(clientCode)}/nudges/${nudgeId}`, {
-      method: 'DELETE'
-    });
-
-    if (res.ok) {
-      await loadPlaybook();
-    }
-  } catch (err) {
-    console.error('[Dashboard] Error deleting nudge:', err);
-    alert('Failed to delete nudge.');
-  }
+function formatSuggestionDate(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp.endsWith('Z') ? timestamp : timestamp + 'Z');
+  return date.toLocaleDateString();
 }
 
 // ==================== START ====================

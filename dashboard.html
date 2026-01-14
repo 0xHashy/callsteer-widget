@@ -420,15 +420,28 @@
       <!-- Playbook Tab -->
       <div class="tab-content" id="tab-playbook">
         <div class="content-header">
-          <h1>Custom Playbook</h1>
-          <p class="subtitle">Manage your team's rebuttals and responses</p>
+          <h1>Team Playbook</h1>
+          <p class="subtitle">Your team's custom rebuttals - suggest new ones below</p>
+        </div>
+
+        <!-- Suggestion Actions -->
+        <div class="playbook-actions">
+          <button class="btn-suggest" id="btn-suggest-nudge">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+            Suggest a Rebuttal
+          </button>
+          <button class="btn-secondary" id="btn-my-suggestions">
+            My Suggestions <span class="badge" id="my-suggestions-count" style="display: none;">0</span>
+          </button>
         </div>
 
         <!-- Playbook Stats -->
         <div class="playbook-stats">
           <div class="stat-card">
             <div class="stat-value" id="playbook-total">0</div>
-            <div class="stat-label">Total Nudges</div>
+            <div class="stat-label">Team Nudges</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="playbook-active">0</div>
@@ -444,18 +457,7 @@
           </div>
         </div>
 
-        <!-- Add Nudge Button -->
-        <div class="playbook-actions">
-          <button class="btn-add-nudge" id="btn-add-nudge">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Custom Nudge
-          </button>
-        </div>
-
-        <!-- Playbook List -->
+        <!-- Playbook List (Read-Only for Reps) -->
         <div class="playbook-list" id="playbook-list">
           <div class="playbook-empty" id="playbook-empty">
             <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -463,47 +465,71 @@
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
             </svg>
             <h3>No custom nudges yet</h3>
-            <p>Add your first custom rebuttal to get started</p>
+            <p>Your admin will add rebuttals here, or suggest one above!</p>
           </div>
           <!-- Nudges will be rendered here by JavaScript -->
         </div>
       </div>
 
-      <!-- Playbook Modal -->
-      <div class="modal-overlay" id="playbook-modal" style="display: none;">
+      <!-- Suggestion Modal -->
+      <div class="modal-overlay" id="suggestion-modal" style="display: none;">
         <div class="modal-content">
           <div class="modal-header">
-            <h2 id="modal-title">Add Custom Nudge</h2>
-            <button class="modal-close" id="modal-close">&times;</button>
+            <h2>Suggest a Rebuttal</h2>
+            <button class="modal-close" id="suggestion-modal-close">&times;</button>
           </div>
-          <form id="playbook-form">
+          <form id="suggestion-form">
             <div class="form-group">
-              <label for="nudge-trigger">Trigger Phrase</label>
-              <input type="text" id="nudge-trigger" placeholder="e.g., 'too expensive', 'need to think about it'" required>
-              <span class="form-hint">The phrase that triggers this nudge when customer says it</span>
+              <label for="suggestion-trigger">What does the customer say?</label>
+              <input type="text" id="suggestion-trigger" placeholder="e.g., 'That's too expensive', 'I need to think about it'" required>
+              <span class="form-hint">The objection or phrase you want to handle</span>
             </div>
             <div class="form-group">
-              <label for="nudge-trigger-type">Trigger Type</label>
-              <select id="nudge-trigger-type">
-                <option value="keyword">Keyword Match</option>
-                <option value="semantic">Semantic Match (Fuzzy)</option>
-                <option value="regex">Regular Expression</option>
+              <label for="suggestion-response">Your Suggested Response</label>
+              <textarea id="suggestion-response" rows="4" placeholder="What do you say that works well?" required></textarea>
+              <span class="form-hint">Share the rebuttal that's been working for you</span>
+            </div>
+            <div class="form-group">
+              <label for="suggestion-category">Category (Optional)</label>
+              <select id="suggestion-category">
+                <option value="">Select category...</option>
+                <option value="price">Price Objection</option>
+                <option value="timing">Timing/Stall</option>
+                <option value="competitor">Competitor Mention</option>
+                <option value="authority">Decision Maker</option>
+                <option value="trust">Trust/Credibility</option>
+                <option value="other">Other</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="nudge-category">Category</label>
-              <input type="text" id="nudge-category" placeholder="e.g., 'Price Objection', 'Competitor'" required>
-            </div>
-            <div class="form-group">
-              <label for="nudge-response">Rebuttal Response</label>
-              <textarea id="nudge-response" rows="4" placeholder="Enter the suggested response for reps..." required></textarea>
-              <span class="form-hint">AI will generate variations of this response</span>
+              <label for="suggestion-context">Why does this work? (Optional)</label>
+              <textarea id="suggestion-context" rows="2" placeholder="Any context on when/why this response is effective..."></textarea>
             </div>
             <div class="form-actions">
-              <button type="button" class="btn-secondary" id="btn-cancel-nudge">Cancel</button>
-              <button type="submit" class="btn-primary" id="btn-save-nudge">Save Nudge</button>
+              <button type="button" class="btn-secondary" id="btn-cancel-suggestion">Cancel</button>
+              <button type="submit" class="btn-primary" id="btn-submit-suggestion">Submit for Review</button>
             </div>
           </form>
+          <div id="suggestion-success" class="success-message" style="display: none;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <span>Suggestion submitted! Your admin will review it.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Suggestions Modal -->
+      <div class="modal-overlay" id="my-suggestions-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+          <div class="modal-header">
+            <h2>My Suggestions</h2>
+            <button class="modal-close" id="my-suggestions-close">&times;</button>
+          </div>
+          <div id="my-suggestions-list" class="suggestions-list">
+            <div class="loading">Loading...</div>
+          </div>
         </div>
       </div>
 
