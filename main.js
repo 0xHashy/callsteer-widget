@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Dev mode flag - set to true to enable DevTools
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // Configure command line switches FIRST - BEFORE any other modules that might use them
 // These must be set before app.ready for them to take effect
