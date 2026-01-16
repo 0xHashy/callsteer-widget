@@ -137,7 +137,7 @@ let transcriptBufferTimeouts = {
   customer: null
 };
 const BUFFER_DELAY_MS = 1200;  // Increased to better aggregate compound statements
-const MIN_TRANSCRIPT_LENGTH = 15; // Minimum chars to send
+const MIN_TRANSCRIPT_LENGTH = 8; // Minimum chars to send (lowered to catch short objections like "no thanks", "email me")
 
 /**
  * Buffer and send transcript - accumulates FINAL transcript fragments and sends complete thoughts
