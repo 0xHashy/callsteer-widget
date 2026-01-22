@@ -63,6 +63,7 @@ const NUDGE_IGNORE_TIMEOUT_MS = 60000; // 60 seconds = auto-dismiss if ignored
 
 // ==================== REBUTTAL TRACKING STATE ====================
 let currentSuggestionText = '';      // The current nudge suggestion to match against
+let votedNudgeIds = new Set();       // Track nudges that have been voted on to prevent gaming
 let rebuttalsUsedToday = 0;          // Count of rebuttals used today
 let rebuttalsUsedTotal = 0;          // Total rebuttals used in session
 let nudgesReceivedToday = 0;         // Count of nudges received today (persisted)
@@ -2133,9 +2134,12 @@ function displayNudge(nudge) {
   const echoEl = document.getElementById('nudge-echo');
   const echoText = document.getElementById('echo-text');
 
-  // Reset vote buttons for new nudge
+  // Reset vote buttons for new nudge (re-enable if not already voted)
   voteUpBtn?.classList.remove('voted');
   voteDownBtn?.classList.remove('voted');
+  const alreadyVoted = nudge && votedNudgeIds.has(nudge.nudge_id);
+  if (voteUpBtn) voteUpBtn.disabled = alreadyVoted;
+  if (voteDownBtn) voteDownBtn.disabled = alreadyVoted;
 
   // Clear any existing auto-dismiss timer
   if (nudgeAutoDismissTimer) {
@@ -2371,6 +2375,18 @@ async function voteOnNudge(vote) {
   const nudgeId = currentNudge.nudge_id;
   const voteUpBtn = document.getElementById('vote-up-btn');
   const voteDownBtn = document.getElementById('vote-down-btn');
+
+  // Prevent voting on same nudge twice
+  if (votedNudgeIds.has(nudgeId)) {
+    console.log('[Vote] Already voted on this nudge');
+    showToast('Already voted on this nudge', 'info');
+    return;
+  }
+  votedNudgeIds.add(nudgeId);
+
+  // Disable buttons after voting
+  if (voteUpBtn) voteUpBtn.disabled = true;
+  if (voteDownBtn) voteDownBtn.disabled = true;
 
   // Visual feedback - show which button was clicked
   if (vote === 'up') {
