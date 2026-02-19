@@ -126,7 +126,8 @@ let repName = null; // Rep's display name for shift-based isolation
 let nudgeSocket = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_DELAY = 3000;
+const BASE_RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 30000;
 
 // Transcript buffering - accumulate fragments before sending
 const transcriptBuffers = {
@@ -1976,14 +1977,15 @@ function connectToNudgeWebSocket(code) {
       // Only reconnect if we're still supposed to be listening
       if (isListening && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
-        console.log(`[WebSocket] Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+        const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1), MAX_RECONNECT_DELAY);
+        console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
         updateConnectionStatus('error', 'Reconnecting...');
 
         setTimeout(() => {
           if (isListening) {
             connectToNudgeWebSocket(code);
           }
-        }, RECONNECT_DELAY);
+        }, delay);
       } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         console.error('[WebSocket] Max reconnect attempts reached');
         updateConnectionStatus('error', 'Connection failed');

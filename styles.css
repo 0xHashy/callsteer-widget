@@ -1184,7 +1184,7 @@ button, select {
 .settings-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   min-width: 180px;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
