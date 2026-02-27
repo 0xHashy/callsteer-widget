@@ -28,33 +28,35 @@
 
 :root {
   /* Navigation theme colors */
+  /* ORIGINAL: --nav-blue: #4A90D9; --nav-teal: #00C8D4; --accent: #00C8D4; --success: #00C8D4; */
+  /* TEST: True black & white with glowing white accent */
   --nav-blue: #4A90D9;
-  --nav-teal: #00C8D4;
-  --accent: #00C8D4;
+  --nav-teal: #ffffff;
+  --accent: #ffffff;
 
-  /* Glass colors - Dark mode (default) */
-  --glass-bg: rgba(18, 18, 24, 0.92);
-  --glass-bg-light: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-hover: rgba(255, 255, 255, 0.15);
+  /* Glass colors - True black */
+  --glass-bg: rgba(0, 0, 0, 0.97);
+  --glass-bg-light: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-hover: rgba(255, 255, 255, 0.2);
 
   /* Text colors */
   --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.4);
-  --text-dim: rgba(255, 255, 255, 0.25);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-dim: rgba(255, 255, 255, 0.2);
 
   /* Status colors */
-  --success: #00C8D4;
+  --success: #ffffff;
   --warning: #FF9F0A;
   --error: #FF453A;
 
   /* Input/Select backgrounds */
-  --input-bg: rgba(0, 0, 0, 0.3);
-  --input-option-bg: #1a1a22;
-  --header-bg: rgba(0, 0, 0, 0.15);
-  --footer-bg: rgba(0, 0, 0, 0.1);
-  --tab-bg: rgba(0, 0, 0, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.06);
+  --input-option-bg: #0a0a0a;
+  --header-bg: rgba(255, 255, 255, 0.03);
+  --footer-bg: rgba(255, 255, 255, 0.02);
+  --tab-bg: rgba(255, 255, 255, 0.04);
   --bg-primary: #12121a;
 
   /* Responsive typography - scales with viewport */
@@ -435,6 +437,10 @@ button, select {
     letter-spacing: 0.8px;
   }
 
+  .header-wordmark {
+    height: 12px;
+  }
+
   .header-left {
     min-width: 70px;
     gap: 2px;
@@ -720,6 +726,14 @@ button, select {
   white-space: nowrap; /* Keep on one line */
 }
 
+/* Header wordmark image (SVG logo replacing text branding) */
+.header-wordmark {
+  height: 16px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+
 /* Branding text - CALLSTEER in white/black, .AI ALWAYS cyan */
 .brand-text {
   font-size: 14px;
@@ -741,6 +755,11 @@ button, select {
 /* Light mode override for brand name */
 [data-theme="light"] .brand-name {
   color: #000000;
+}
+
+/* Light mode: invert white wordmark to black */
+[data-theme="light"] .header-wordmark {
+  filter: invert(1);
 }
 
 /* Right section - window controls */

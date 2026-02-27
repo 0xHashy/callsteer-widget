@@ -30,7 +30,8 @@
   "devDependencies": {
     "electron": "^38.7.2",
     "electron-builder": "^24.9.1",
-    "png-to-ico": "^3.0.1"
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   },
   "build": {
     "appId": "com.callsteer.widget",

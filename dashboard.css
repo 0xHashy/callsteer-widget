@@ -25,20 +25,22 @@
 }
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-card: #1a1a24;
-  --bg-card-hover: #222230;
-  --accent: #00C8D4;
-  --accent-light: #00E0E6;
-  --accent-glow: rgba(0, 200, 212, 0.3);
-  --accent-subtle: rgba(0, 200, 212, 0.1);
+  /* ORIGINAL: --bg-primary: #0a0a0f; --accent: #00C8D4; --success: #00C8D4; */
+  /* TEST: True black & white theme */
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-card: #111111;
+  --bg-card-hover: #1a1a1a;
+  --accent: #ffffff;
+  --accent-light: #ffffff;
+  --accent-glow: rgba(255, 255, 255, 0.2);
+  --accent-subtle: rgba(255, 255, 255, 0.06);
   --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-muted: rgba(255, 255, 255, 0.35);
   --border: rgba(255, 255, 255, 0.1);
   --border-hover: rgba(255, 255, 255, 0.2);
-  --success: #00C8D4;
+  --success: #ffffff;
   --warning: #FF9F0A;
   --gold: #ffd700;
 }
@@ -250,13 +252,19 @@ body {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 24px 20px;
+  justify-content: center;
+  padding: 24px 16px;
   border-bottom: 1px solid var(--border);
 }
 
 .sidebar-brand .logo-icon {
   flex-shrink: 0;
+}
+
+.sidebar-wordmark {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .sidebar-brand .brand-text {
@@ -611,6 +619,10 @@ body {
     font-size: clamp(11px, 1.2vw, 14px);
   }
 
+  .sidebar-wordmark {
+    height: 18px;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -627,6 +639,7 @@ body {
   }
 
   .sidebar-brand .brand-text,
+  .sidebar-wordmark,
   .nav-tab span,
   .user-info {
     display: none;
