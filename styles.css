@@ -1,5 +1,23 @@
 /* CallSteer Widget - Navigation-Inspired Compact Design */
 
+/* ==================== BRAND FONTS ==================== */
+
+@font-face {
+  font-family: 'Acumin Pro';
+  src: url('Acumin-BdPro.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tiempos Headline';
+  src: url('Tiempos Headline-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ==================== RESET & BASE ==================== */
 
 * {
@@ -1855,6 +1873,7 @@ button, select {
 .brand-title {
   font-size: 22px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   letter-spacing: -0.5px;
 }
@@ -2210,7 +2229,8 @@ button, select {
 
 .stats-hero-value {
   font-size: 48px;
-  font-weight: 800;
+  font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--accent);
   line-height: 1;
   margin-bottom: 4px;

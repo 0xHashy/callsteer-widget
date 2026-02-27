@@ -1,5 +1,23 @@
 /* CallSteer Dashboard Styles */
 
+/* ==================== BRAND FONTS ==================== */
+
+@font-face {
+  font-family: 'Acumin Pro';
+  src: url('Acumin-BdPro.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tiempos Headline';
+  src: url('Tiempos Headline-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -244,6 +262,7 @@ body {
 .sidebar-brand .brand-text {
   font-size: clamp(12px, 1.4vw, 18px);
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: 1px;
   white-space: nowrap;
   overflow: hidden;
@@ -335,6 +354,7 @@ body {
 .content-header h1 {
   font-size: 28px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
@@ -451,6 +471,7 @@ body {
 .stat-value {
   font-size: 32px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   line-height: 1.2;
 }
@@ -744,6 +765,7 @@ body {
 .perf-stat-value {
   font-size: 28px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   line-height: 1.2;
 }
@@ -943,6 +965,7 @@ body {
 .position-rank {
   font-size: 28px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--accent);
 }
 
@@ -954,6 +977,7 @@ body {
 .position-stat-value {
   font-size: 24px;
   font-weight: 700;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   display: block;
 }
