@@ -123,7 +123,7 @@ function createWindow() {
     x: bounds.x,
     y: bounds.y,
     frame: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
