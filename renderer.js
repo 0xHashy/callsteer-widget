@@ -285,6 +285,18 @@ async function initializeApp() {
       return; // Don't continue with the stale session
     }
 
+    // Apply module-type accent color from saved session
+    if (clientInfo && clientInfo.module_type) {
+      const MODULE_COLORS = {
+        sales:            { accent: '#00C8D4', rgb: '0, 200, 212' },
+        customer_service: { accent: '#8B5CF6', rgb: '139, 92, 246' },
+        tech_support:     { accent: '#F59E0B', rgb: '245, 158, 11' }
+      };
+      const moduleTheme = MODULE_COLORS[clientInfo.module_type] || MODULE_COLORS.sales;
+      document.documentElement.style.setProperty('--accent', moduleTheme.accent);
+      document.documentElement.style.setProperty('--accent-rgb', moduleTheme.rgb);
+    }
+
     // Check if mic is configured
     if (savedMicId) {
       selectedMicId = savedMicId;
@@ -1313,8 +1325,19 @@ async function handleLogin() {
       company_name: data.company_name,
       rep_name: repName,
       rep_id: repId,
-      role: data.role
+      role: data.role,
+      module_type: data.module_type || 'sales'
     };
+
+    // Apply module-type accent color
+    const MODULE_COLORS = {
+      sales:            { accent: '#00C8D4', rgb: '0, 200, 212' },
+      customer_service: { accent: '#8B5CF6', rgb: '139, 92, 246' },
+      tech_support:     { accent: '#F59E0B', rgb: '245, 158, 11' }
+    };
+    const moduleTheme = MODULE_COLORS[clientInfo.module_type] || MODULE_COLORS.sales;
+    document.documentElement.style.setProperty('--accent', moduleTheme.accent);
+    document.documentElement.style.setProperty('--accent-rgb', moduleTheme.rgb);
 
     if (window.electronAPI) {
       await window.electronAPI.saveClientCode(clientCode);
@@ -3871,7 +3894,7 @@ function showVBCableSetupModal() {
       }
       .modal-content.vbcable-setup {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid rgba(0, 199, 190, 0.3);
+        border: 1px solid rgba(var(--accent-rgb), 0.3);
         border-radius: 12px;
         width: 90%;
         max-width: 420px;
@@ -3935,7 +3958,7 @@ function showVBCableSetupModal() {
       }
       .step:last-child { border-bottom: none; }
       .step-num {
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         color: #fff;
         width: 24px;
         height: 24px;
@@ -3948,8 +3971,8 @@ function showVBCableSetupModal() {
         flex-shrink: 0;
       }
       .setup-diagram {
-        background: rgba(0, 199, 190, 0.1);
-        border: 1px solid rgba(0, 199, 190, 0.2);
+        background: rgba(var(--accent-rgb), 0.1);
+        border: 1px solid rgba(var(--accent-rgb), 0.2);
         border-radius: 8px;
         padding: 16px;
         margin-top: 16px;
@@ -3969,11 +3992,11 @@ function showVBCableSetupModal() {
         white-space: nowrap;
       }
       .diagram-box.highlight {
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         color: #fff;
       }
       .diagram-arrow {
-        color: #00c7be;
+        color: var(--accent);
         font-size: 16px;
       }
       .modal-footer {
@@ -3991,13 +4014,13 @@ function showVBCableSetupModal() {
         transition: all 0.2s;
       }
       .btn-primary {
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         border: none;
         color: #fff;
       }
       .btn-primary:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 199, 190, 0.4);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.4);
       }
       .btn-secondary {
         background: rgba(255, 255, 255, 0.1);
@@ -4010,8 +4033,8 @@ function showVBCableSetupModal() {
       }
       .modal-step-indicator {
         font-size: 11px;
-        color: var(--nav-teal, #00c7be);
-        background: rgba(0, 199, 190, 0.15);
+        color: var(--nav-teal, var(--accent));
+        background: rgba(var(--accent-rgb), 0.15);
         padding: 3px 8px;
         border-radius: 10px;
         margin-left: auto;
@@ -4036,7 +4059,7 @@ function showVBCableSetupModal() {
       .audio-meter-bar {
         height: 100%;
         width: 0%;
-        background: linear-gradient(90deg, #00c7be, #4a90d9, #34c759);
+        background: linear-gradient(90deg, var(--accent), #4a90d9, #34c759);
         transition: width 0.05s ease-out;
         border-radius: 6px;
       }
@@ -4069,8 +4092,8 @@ function showVBCableSetupModal() {
         margin-top: 8px;
       }
       .detected-device {
-        background: rgba(0, 199, 190, 0.15);
-        border: 1px solid rgba(0, 199, 190, 0.3);
+        background: rgba(var(--accent-rgb), 0.15);
+        border: 1px solid rgba(var(--accent-rgb), 0.3);
         border-radius: 6px;
         padding: 10px;
         margin-bottom: 12px;
@@ -4079,7 +4102,7 @@ function showVBCableSetupModal() {
         gap: 8px;
       }
       .detected-device-icon {
-        color: #00c7be;
+        color: var(--accent);
         font-size: 18px;
       }
       .detected-device-info {
@@ -4189,8 +4212,8 @@ function showVBCableSetupModal() {
       }
       /* Audio routing explainer */
       .audio-routing-explainer {
-        background: rgba(0, 199, 190, 0.08);
-        border: 1px solid rgba(0, 199, 190, 0.2);
+        background: rgba(var(--accent-rgb), 0.08);
+        border: 1px solid rgba(var(--accent-rgb), 0.2);
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 12px;
@@ -4214,7 +4237,7 @@ function showVBCableSetupModal() {
         color: #fff;
       }
       .routing-text strong {
-        color: var(--nav-teal, #00c7be);
+        color: var(--nav-teal, var(--accent));
       }
       /* Important note box */
       .setup-important-note {
@@ -4261,7 +4284,7 @@ function showVBCableSetupModal() {
         color: rgba(255, 255, 255, 0.8);
       }
       .dialer-item strong {
-        color: var(--nav-teal, #00c7be);
+        color: var(--nav-teal, var(--accent));
       }
       /* Diagram section label */
       .diagram-section {
@@ -4275,14 +4298,14 @@ function showVBCableSetupModal() {
         margin-bottom: 8px;
       }
       .diagram-box.accent {
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         color: #fff;
         font-weight: 600;
       }
       /* Test instructions */
       .test-instructions {
-        background: rgba(0, 199, 190, 0.08);
-        border: 1px solid rgba(0, 199, 190, 0.2);
+        background: rgba(var(--accent-rgb), 0.08);
+        border: 1px solid rgba(var(--accent-rgb), 0.2);
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 12px;
@@ -4302,7 +4325,7 @@ function showVBCableSetupModal() {
         margin: 4px 0;
       }
       .test-instructions strong {
-        color: var(--nav-teal, #00c7be);
+        color: var(--nav-teal, var(--accent));
       }
       /* Success state styling */
       .setup-success-notice {
@@ -4642,12 +4665,12 @@ function showListenSetupModal() {
         border-radius: 8px;
         font-size: 13px;
         cursor: pointer;
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         color: #fff;
       }
       .listen-modal-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 199, 190, 0.4);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.4);
       }
       .listen-steps-modal {
         background: rgba(0, 0, 0, 0.3);
@@ -4667,7 +4690,7 @@ function showListenSetupModal() {
         border-bottom: none;
       }
       .listen-step-modal .step-num {
-        background: linear-gradient(135deg, #00c7be, #4a90d9);
+        background: linear-gradient(135deg, var(--accent), #4a90d9);
         color: #fff;
         width: 20px;
         height: 20px;
