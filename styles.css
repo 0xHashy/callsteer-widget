@@ -1395,9 +1395,8 @@ button, select {
 
 .power-btn.active {
   border-color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.15);
-  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.3);
-  animation: powerBtnPulse 4s ease-in-out infinite;
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.2);
 }
 
 @keyframes powerBtnPulse {
@@ -1422,15 +1421,14 @@ button, select {
   color: var(--accent);
 }
 
-/* Pulsing ring when active */
+/* Static ring when active — no pulse */
 .power-btn.active::after {
   content: '';
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
-  opacity: 0;
-  animation: pulse-ring 2s ease-out infinite;
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  opacity: 1;
 }
 
 @keyframes pulse-ring {
@@ -1451,21 +1449,17 @@ button, select {
   border-radius: 16px;
 }
 
+/* Static bars — different heights suggest audio, no motion needed */
 .wave {
-  width: 3px;
-  height: 10px;
+  width: 2px;
   background: var(--accent);
-  border-radius: 2px;
-  animation: wave 1s ease-in-out infinite;
+  border-radius: 1px;
+  opacity: 0.7;
+  height: 8px;
 }
 
-.wave:nth-child(2) { animation-delay: 0.1s; }
-.wave:nth-child(3) { animation-delay: 0.2s; }
-
-@keyframes wave {
-  0%, 100% { height: 8px; opacity: 0.5; }
-  50% { height: 16px; opacity: 1; }
-}
+.wave:nth-child(2) { height: 14px; opacity: 0.9; }
+.wave:nth-child(3) { height: 10px; opacity: 0.7; }
 
 .listening-text {
   font-size: 11px;
@@ -1849,7 +1843,6 @@ button, select {
   height: 5px;
   border-radius: 50%;
   background: var(--warning);
-  animation: blink 1.5s ease-in-out infinite;
 }
 
 .footer.connected .footer-dot {
@@ -2371,9 +2364,9 @@ button, select {
   font-weight: 500;
 }
 
-/* Streak fire animation */
+/* Streak fire — static warm glow, no animation */
 .stats-card-icon.streak.on-fire {
-  animation: fireGlow 1s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(255, 159, 10, 0.4);
 }
 
 @keyframes fireGlow {
@@ -3337,7 +3330,6 @@ button, select {
   height: 6px;
   background: var(--success);
   border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
 }
 
 .system-audio-status.error .status-dot {
