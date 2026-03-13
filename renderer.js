@@ -1970,8 +1970,10 @@ function connectToNudgeWebSocket(code) {
     nudgeSocket.onmessage = (event) => {
       console.log('[WebSocket] Received message:', event.data);
 
-      // Ignore heartbeat messages
-      if (event.data === 'pong' || event.data === 'ping') {
+      // Handle heartbeat messages
+      if (event.data === 'pong') return;
+      if (event.data === 'ping') {
+        nudgeSocket.send('pong');
         return;
       }
 
