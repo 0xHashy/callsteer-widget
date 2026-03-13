@@ -140,8 +140,8 @@
 }
 
 [data-theme="light"] .nudge-echo {
-  background: rgba(0, 153, 170, 0.08);
-  border-color: rgba(0, 153, 170, 0.12);
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.12);
 }
 
 [data-theme="light"] .nudge-category {
@@ -388,11 +388,11 @@ button, select {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Dynamic tri-color pulsing border when listening - HIGHLY VISIBLE */
+/* Subtle listening indicator — steady border, no pulsing glow that blurs nudge text */
 .widget.listening,
 #main-widget.listening {
   border: 2px solid var(--accent) !important;
-  animation: borderTriPulse 4s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
 }
 
 @keyframes borderTriPulse {
@@ -499,7 +499,7 @@ button, select {
   }
 
   .nudge-echo {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .nudge-suggestion {
@@ -1643,28 +1643,29 @@ button, select {
 .nudge-echo {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
   margin-bottom: 10px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .echo-label {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   flex-shrink: 0;
 }
 
 .echo-text {
-  font-style: italic;
-  color: var(--text-secondary);
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4229,13 +4230,13 @@ button, select {
   }
 }
 
+/* Listening state: steady glow only — no pulsing animation that blurs nudge card text */
 body.is-listening .widget {
-  animation: recording-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4), 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
-/* Also apply to the tri-color pulse - make it more visible */
 body.is-listening .widget.listening {
-  animation: recording-glow 2s ease-in-out infinite, borderTriPulse 4s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4), 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 /* ==================== RESPONSIVE MEDIA QUERIES ==================== */
@@ -4343,7 +4344,7 @@ body:not(.compact-mode) #main-widget .stats-section {
 }
 
 .nudge-echo {
-  font-size: clamp(10px, 2vw, 12px) !important;
+  font-size: clamp(12px, 2vw, 14px) !important;
 }
 
 .stats-hero-value {
