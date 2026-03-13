@@ -35,9 +35,9 @@
   --accent: #00C8D4;
   --accent-rgb: 0, 200, 212;
 
-  /* Glass colors - True black */
-  --glass-bg: rgba(0, 0, 0, 0.97);
-  --glass-bg-light: rgba(255, 255, 255, 0.05);
+  /* Glass colors - Rich near-black (softer than pure #000) */
+  --glass-bg: rgba(10, 10, 15, 0.97);
+  --glass-bg-light: rgba(255, 255, 255, 0.04);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-border-hover: rgba(255, 255, 255, 0.2);
 
@@ -395,29 +395,7 @@ button, select {
   box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
 }
 
-@keyframes borderTriPulse {
-  0%, 100% {
-    border-color: var(--accent);
-    box-shadow:
-      0 0 12px rgba(var(--accent-rgb), 0.7),
-      0 0 24px rgba(var(--accent-rgb), 0.4),
-      inset 0 0 8px rgba(var(--accent-rgb), 0.1);
-  }
-  33% {
-    border-color: #4A90D9;
-    box-shadow:
-      0 0 12px rgba(74, 144, 217, 0.7),
-      0 0 24px rgba(74, 144, 217, 0.4),
-      inset 0 0 8px rgba(74, 144, 217, 0.1);
-  }
-  66% {
-    border-color: #00C8D4;
-    box-shadow:
-      0 0 12px rgba(0, 200, 212, 0.7),
-      0 0 24px rgba(0, 200, 212, 0.4),
-      inset 0 0 8px rgba(0, 200, 212, 0.1);
-  }
-}
+/* borderTriPulse removed — replaced by breathing glow system */
 
 /* ==================== RESPONSIVE SCALING ==================== */
 
@@ -1197,8 +1175,14 @@ button, select {
 }
 
 .header-icon-btn:hover {
-  background: rgba(var(--accent-rgb), 0.2);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.header-icon-btn:active {
+  transform: scale(0.92);
+  transition-duration: 0.06s;
 }
 
 .header-icon-btn.active {
@@ -1235,14 +1219,14 @@ button, select {
   z-index: 1000;
   display: none;
   opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform: translateY(-6px) scale(0.97);
+  transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .settings-dropdown.show {
   display: block;
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .settings-user-info {
@@ -1379,34 +1363,39 @@ button, select {
   min-height: 48px;
   border-radius: 50%;
   border: 2px solid var(--glass-border);
-  background: var(--input-bg);
+  background: rgba(10, 10, 15, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   flex-shrink: 0;
 }
 
+/* Satisfying press-down on click */
+.power-btn:active {
+  transform: scale(0.94);
+  transition-duration: 0.08s;
+}
+
 .power-btn:hover {
   border-color: var(--glass-border-hover);
-  background: var(--glass-bg-light);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .power-btn.active {
   border-color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.12);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.2);
+  background: rgba(var(--accent-rgb), 0.10);
+  animation: breathe 6s ease-in-out infinite;
 }
 
-@keyframes powerBtnPulse {
+/* MacBook sleep-light: barely-perceptible 6s breathing glow */
+@keyframes breathe {
   0%, 100% {
-    border-color: var(--accent);
-    box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.15);
   }
   50% {
-    border-color: #4A90D9;
-    box-shadow: 0 0 12px rgba(74, 144, 217, 0.4);
+    box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35);
   }
 }
 
@@ -1421,19 +1410,19 @@ button, select {
   color: var(--accent);
 }
 
-/* Static ring when active — no pulse */
+/* Subtle outer ring — breathes with button */
 .power-btn.active::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -5px;
   border-radius: 50%;
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
-  opacity: 1;
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  animation: breatheRing 6s ease-in-out infinite;
 }
 
-@keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.6; }
-  100% { transform: scale(1.3); opacity: 0; }
+@keyframes breatheRing {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
 }
 
 /* ==================== LISTENING INDICATOR ==================== */
@@ -1449,22 +1438,30 @@ button, select {
   border-radius: 16px;
 }
 
-/* Static bars — different heights suggest audio, no motion needed */
+/* Gentle soundwave — slow, staggered, minimal amplitude */
 .wave {
   width: 2px;
   background: var(--accent);
   border-radius: 1px;
-  opacity: 0.7;
+  opacity: 0.6;
   height: 8px;
+  animation: waveGently 2.4s ease-in-out infinite;
 }
 
-.wave:nth-child(2) { height: 14px; opacity: 0.9; }
-.wave:nth-child(3) { height: 10px; opacity: 0.7; }
+.wave:nth-child(1) { animation-delay: 0s; }
+.wave:nth-child(2) { height: 14px; opacity: 0.8; animation-delay: 0.3s; }
+.wave:nth-child(3) { height: 10px; opacity: 0.7; animation-delay: 0.6s; }
+
+@keyframes waveGently {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.4); }
+}
 
 .listening-text {
   font-size: 11px;
   font-weight: 500;
   color: var(--accent);
+  letter-spacing: 0.3px;
 }
 
 /* ==================== NUDGE SECTION ==================== */
@@ -1497,18 +1494,19 @@ button, select {
   color: var(--text-muted);
 }
 
-/* Navigation-style nudge card */
+/* Premium nudge card — the hero moment */
 .nudge-card {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.1), rgba(74, 144, 217, 0.08));
-  border: 1px solid rgba(var(--accent-rgb), 0.25);
-  border-radius: 10px;
-  padding: 12px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), rgba(74, 144, 217, 0.05));
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 12px;
+  padding: 14px;
   position: relative;
-  animation: nudgeAppear 0.3s ease-out;
-  margin-bottom: 4px; /* Ensure bottom isn't cut off */
+  animation: nudgeSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  margin-bottom: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Navigation arrow indicator */
+/* Accent left bar — gradient for depth */
 .nudge-card::before {
   content: '';
   position: absolute;
@@ -1516,10 +1514,18 @@ button, select {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--accent);
+  background: linear-gradient(to bottom, var(--accent), rgba(var(--accent-rgb), 0.3));
   border-radius: 3px 0 0 3px;
 }
 
+/* Spring-physics entrance — overshoots slightly, settles */
+@keyframes nudgeSlideIn {
+  0% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  60% { opacity: 1; transform: translateY(1px) scale(1.005); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Legacy alias */
 @keyframes nudgeAppear {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1627,10 +1633,12 @@ button, select {
 }
 
 .nudge-text {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.55;
   color: var(--text-primary);
   margin-bottom: 10px;
+  letter-spacing: -0.1px;
 }
 
 /* Echo styling - shows what customer said (what was heard) */
@@ -1642,9 +1650,9 @@ button, select {
   color: var(--text-primary);
   margin-bottom: 10px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .echo-label {
@@ -1685,16 +1693,22 @@ button, select {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   color: var(--text-muted);
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nudge-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.nudge-btn:active {
+  transform: scale(0.92);
+  transition-duration: 0.06s;
 }
 
 .nudge-btn svg {
@@ -1719,9 +1733,10 @@ button, select {
   background: rgba(255, 69, 58, 0.1);
 }
 
-/* Voted state */
+/* Voted state — brief confirmation pop */
 .vote-btn.voted {
   pointer-events: none;
+  animation: votePop 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 #vote-up-btn.voted {
@@ -1734,6 +1749,12 @@ button, select {
   color: var(--error);
   border-color: rgba(255, 69, 58, 0.5);
   background: rgba(255, 69, 58, 0.15);
+}
+
+@keyframes votePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(1); }
 }
 
 /* Divider between vote and action buttons */
@@ -1843,11 +1864,12 @@ button, select {
   height: 5px;
   border-radius: 50%;
   background: var(--warning);
+  animation: dotBreathe 4s ease-in-out infinite;
 }
 
 .footer.connected .footer-dot {
   background: var(--success);
-  animation: none;
+  animation: dotBreathe 4s ease-in-out infinite;
 }
 
 .footer.error .footer-dot {
@@ -1855,9 +1877,10 @@ button, select {
   animation: none;
 }
 
-@keyframes blink {
+/* Calm status breathing — alive but quiet */
+@keyframes dotBreathe {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.5; }
 }
 
 .footer-text {
@@ -1935,6 +1958,7 @@ button, select {
 
 .input-field:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .input-hint {
@@ -1982,8 +2006,13 @@ button, select {
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 0.06s;
 }
 
 .btn-primary {
@@ -2200,7 +2229,12 @@ button, select {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tab-btn:active {
+  transform: scale(0.96);
+  transition-duration: 0.06s;
 }
 
 .tab-btn:hover {
@@ -2285,7 +2319,8 @@ button, select {
 
 .stats-card:hover {
   border-color: var(--glass-border-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .stats-card-icon {
@@ -2364,14 +2399,14 @@ button, select {
   font-weight: 500;
 }
 
-/* Streak fire — static warm glow, no animation */
+/* Streak fire — warm breathing glow (earned, not decorative) */
 .stats-card-icon.streak.on-fire {
-  box-shadow: 0 0 10px rgba(255, 159, 10, 0.4);
+  animation: fireGlow 3s ease-in-out infinite;
 }
 
 @keyframes fireGlow {
-  from { box-shadow: 0 0 8px rgba(255, 159, 10, 0.3); }
-  to { box-shadow: 0 0 16px rgba(255, 159, 10, 0.6); }
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 159, 10, 0.25); }
+  50% { box-shadow: 0 0 14px rgba(255, 159, 10, 0.5); }
 }
 
 /* Big number pulse when it changes */
@@ -3330,6 +3365,7 @@ button, select {
   height: 6px;
   background: var(--success);
   border-radius: 50%;
+  animation: dotBreathe 4s ease-in-out infinite;
 }
 
 .system-audio-status.error .status-dot {
@@ -3339,11 +3375,6 @@ button, select {
 
 .system-audio-status.warning .status-dot {
   background: #ffc107;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 .audio-help-link {
@@ -4206,21 +4237,7 @@ button, select {
 
 /* ==================== RECORDING GLOW EFFECT ==================== */
 
-/* Pulsing glow when listening/recording */
-@keyframes recording-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 8px rgba(var(--accent-rgb), 0.4),
-      0 0 16px rgba(var(--accent-rgb), 0.2),
-      0 8px 32px rgba(0, 0, 0, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 20px rgba(var(--accent-rgb), 0.7),
-      0 0 40px rgba(var(--accent-rgb), 0.4),
-      0 8px 32px rgba(0, 0, 0, 0.5);
-  }
-}
+/* recording-glow removed — replaced by steady listening glow */
 
 /* Listening state: steady glow only — no pulsing animation that blurs nudge card text */
 body.is-listening .widget {
